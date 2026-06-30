@@ -14,7 +14,7 @@ def compute_astar(self, map_data):
     # A*アルゴリズムの計算を行う関数
     # map_data: マップデータ（2Dリストなど）
     # ここにA*アルゴリズムの実装を追加する
-    self.path = []  # 計算結果の経路を格納するリスト
+    self.map_data = map_data  # マップデータを格納
     self.open_set = { # 探索中のノードを格納するリスト
         'position': [],
         'parent': [],
@@ -29,6 +29,13 @@ def compute_astar(self, map_data):
         'h_cost': [],
         'f_cost': []
     }
+
+def heuristic(self, position, goal_position):
+    # ヒューリスティック関数の計算を行う関数
+    # position: 現在位置
+    # goal_position: 目標位置
+    # ここにヒューリスティック関数の実装を追加する
+    return sum((p - g) ** 2 for p, g in zip(position, goal_position)) ** 0.5  # ユークリッド距離を使用
 
 # A*アルゴリズムのロジックをここに実装する
 def search_astar(self, agent_position, goal_position):
@@ -61,10 +68,13 @@ def search_astar(self, agent_position, goal_position):
                     current_cell['position'][2] + direction[2]
                 ],
                 'parent': current_cell['position'],
-                'g_cost': current_cell['g_cost'] + 1, #+1は仮のコスト、実際のコスト計算はマップデータに基づいて行う必要がある
+                'g_cost': current_cell['g_cost'],
                 'h_cost': 0, #仮のヒューリスティックコスト、実際のヒューリスティック計算はgoal_positionに基づいて行う必要がある
                 'f_cost': 'g_cost' + 'h_cost'
             }
+            position_index = self.map_data['position'].index(neighbor_cell['position']) #位置インデックスを取得
+            neighbor_cell['g_cost'] += self.map_data['cost'][position_index] #コスト計算、map_dataよりセルの状態に依存
+
             neighbor_cell['h_cost'] = self.heuristic(neighbor_cell['position'], goal_position)
             neighbor_cell['f_cost'] = neighbor_cell['g_cost'] + neighbor_cell['h_cost']
 
