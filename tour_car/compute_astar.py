@@ -20,7 +20,7 @@ def heuristic(position, goal_position):
 class AstarAlgorithm:
     def __init__(self):
         self.map_data = None
-        self.open_set = { # 探索中のノードを格納するリスト
+        self.open_set = { # 探索中の、ノードになり得るセルを格納するリスト
             'position': [],
             'parent': [],
             'g_cost': [],
