@@ -38,12 +38,6 @@ TOUR_CAR.append(prediction_spots(1, [0, 0, 0])) #巡回車のインスタンス�
 TOUR_CAR.append(prediction_spots(2, [3, 1, -4])) #巡回車のインスタンスを作成
 TOUR_CAR.append(prediction_spots(3, [0, -3, 3])) #巡回車のインスタンスを作成
 
-#例として、スポットデータを与えて距離測定を行う
-SPOT_DATA = [[-1, -1, 2], 
-             [5, -2, -3], 
-             [1, 2, -3]] #スポットデータのリストを作成
-
-
 # tour_car/Bias_tourcar.py
 def select_spots(tour_cars, spot_data, pre_filter_count=2):
     """各tourcar ごとに候補スポットを選別して返す"""
