@@ -1,12 +1,13 @@
 # APIにアクセスするためのクライアントを定義するモジュール
-import requests
+import json
+from urllib.request import urlopen
 
 BASE_URL = "http://localhost:3000/api"  # APIのベースURLを設定
 
 def get_pre_game_data():
-    game_data = requests.get(f"{BASE_URL}/pre-game-data")
-    return game_data.json()
+    with urlopen(f"{BASE_URL}/pre-game-data") as response:
+        return json.loads(response.read().decode("utf-8"))
 
 def get_pre_date_data():
-    date_data = requests.get(f"{BASE_URL}/pre-date-data")
-    return date_data.json()
+    with urlopen(f"{BASE_URL}/pre-date-data") as response:
+        return json.loads(response.read().decode("utf-8"))
