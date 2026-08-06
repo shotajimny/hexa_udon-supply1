@@ -1,5 +1,4 @@
-from tour_car.Bias_tourcar import select_spots
-from tour_car.Bias_tourcar import TOUR_CAR, SPOT_DATA
+#　A*アルゴリズムを実装するためのモジュール
 
 DIRECTIONS = [
     [+1, -1, 0],
