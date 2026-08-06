@@ -1,7 +1,7 @@
 # APIにアクセスするためのクライアントを定義するモジュール
 import requests
 
-BASE_URL = "https://api.example.com"  # APIのベースURLを設定
+BASE_URL = "http://localhost:3000/api"  # APIのベースURLを設定
 
 def get_pre_game_data():
     game_data = requests.get(f"{BASE_URL}/pre-game-data")
