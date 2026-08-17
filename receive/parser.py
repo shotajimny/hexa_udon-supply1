@@ -1,1 +1,2 @@
 # 受け取ったデータをモデルに変換する関数を定義するモジュール
+from receive.models import 
