@@ -28,16 +28,6 @@ def heuristic(position, goal_position):
         # ここにヒューリスティック関数の実装を追加する
         return sum((p - g) ** 2 for p, g in zip(position, goal_position)) ** 0.5  # ユークリッド距離を使用
 
-def compute_cost(position):
-        # コスト計算を行う関数
-        # map_dataはapi.pyから取得する必要がある
-        # position: 現在位置
-        # ここにコスト計算の実装を追加する
-        index = map_data.pos.index(position) #位置インデックスを取得
-        step_cost = map_data.step_cost[index] #位置インデックスに対応するステップコストを取得
-        fuel_cost = map_data.fuel_cost[index] #位置インデックスに対応する燃料コストを取得
-        return step_cost + fuel_cost  # ステップコストと燃料コスト
-
 class AstarAlgorithm:
     # A*アルゴリズムを実装するクラス
     def __init__(self):
