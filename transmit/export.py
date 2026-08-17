@@ -1,3 +1,4 @@
+# 計算結果をjson形式で出力するモジュール
 import json
 
 def export_result(tourcar, spot, result):
