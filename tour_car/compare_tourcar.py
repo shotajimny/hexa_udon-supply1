@@ -9,7 +9,7 @@
 from receive import receive
 
 # 巡回車の情報、マップデータ、スポットの情報を取得するためのモジュールをインポート
-from receive.parser import 
+from receive.models import SpotData,AgentData
 #ここでTOURCAR,SPOT_DATAを定義する
 
 # Bias_tourcar.pyのselect_spots関数を使用して、各巡回車から近そうなスポットを数個ずつ取得する
