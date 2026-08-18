@@ -28,5 +28,5 @@ for tourcar, spot in result.items():
 
 
 # 結果をexportするために、export_result関数を使用してJSON形式で出力する)
-from transmit.export.py import exportt_result
+from transmit.export import export_result
 export_result(result)
