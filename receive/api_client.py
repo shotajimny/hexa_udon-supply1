@@ -15,6 +15,6 @@ def get_pre_game_data():
 #       return json.loads(response.read().decode("utf-8"))
 
 #試合中各日のデータを取得する関数
-def get_pre_date_data():
-    with urlopen(f"{BASE_URL}/pre-date-data") as response:
-        return json.loads(response.read().decode("utf-8"))
+#def get_pre_date_data():
+#    with urlopen(f"{BASE_URL}/pre-date-data") as response:
+#        return json.loads(response.read().decode("utf-8"))
