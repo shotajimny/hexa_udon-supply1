@@ -18,20 +18,11 @@ class SpotData:
         self.stocks = data.get("stocks", 0)               #スポットの在庫情報を格納する変数
 
 
-class InitialAgentData:
-    #試合開始前のエージェント一台分の情報
-
-    def __init__(self, pos):
-        self.pos = pos                     #int #巡回車の位置を格納する変数
-
-
-class AgentData:
-    #初期巡回車データを格納するクラスを定義
+class preAgentData:
+    #試合開始前のエージェントの情報
 
     def __init__(self, data):
-        self.kind = data.get("kind", 0)                   #int #巡回車のタイプを格納する変数
-        self.pos = data.get("pos", 0)                     #int #巡回車の位置を格納する変数
-        self.fuel = data.get("fuel", 0)                   #int #巡回車の燃料積載量を格納する変数
+        self.pos = data.get("pos", [])                     #int #巡回車の位置を格納する変数
 
 
 class OtherPlayerData:
@@ -53,6 +44,15 @@ class TrafficData:
         self.status = data.get("status", 0)
 
 
+class AgentData:
+    #初期巡回車データを格納するクラスを定義
+
+    def __init__(self, data):
+        self.kind = data.get("kind", 0)                   #int #巡回車のタイプを格納する変数
+        self.pos = data.get("pos", 0)                     #int #巡回車の位置を格納する変数
+        self.fuel = data.get("fuel", 0)                   #int #巡回車の燃料積載量を格納する変数
+
+
 class PreGameData:
     # 試合開始前のゲーム情報
 
@@ -71,10 +71,9 @@ class PreGameData:
         ]
 
         self.agents = [
-            InitialAgentData(pos)
-            for pos in data.get("agents", [])
+            preAgentData(agent)
+            for agent in data.get("agents", [])
         ]
-
         self.fuelLimits = data.get("fuelLimits", 0)
         self.players = data.get("players", 0)
         self.busyThreshold = data.get("busyThreshold", 0)
