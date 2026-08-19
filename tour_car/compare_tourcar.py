@@ -24,7 +24,7 @@ from receive.api_client import get_pre_game_data
 raw_data = get_pre_game_data()
 pre_game = parse_pre_game_data(raw_data)
 for i, agent in enumerate(pre_game.agents):
-    for j, spot in enumerate(pre_game.spots):
+    for j, spot in enumerate(result.spot_number):
         astar = AstarAlgorithm()
         astar.map_input(pre_game.map)
 
