@@ -51,11 +51,3 @@ def select_spots(tour_cars, spot_data, pre_filter_count=2):
                 'distance': distance
             })
     return results
-
-# if __name__ == "__main__" でテスト用に実行
-if __name__ == "__main__":
-    tour_cars = [...]  # 既存コード
-    spot_data = [...]  # 既存コード
-    selected = select_spots(tour_cars, spot_data, pre_filter_count=2)
-    for item in selected:
-        export_result(item['tourcar_id'], item['spot_number'], item['distance'])
