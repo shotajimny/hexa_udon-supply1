@@ -1,12 +1,76 @@
 # データモデルを定義するファイル
 
+
+def convert_cells(self):
+    #APIから取得したセルに関する情報を経路探索用に変換するための関数を定義する
+    converted_cells = []
+
+    for row, row_data in enumerate(self.raw_cells):
+        for column, terrain_code in enumerate(row_data):
+            index = row * self.width + column
+
+            # 3軸座標系に変換する(奇数行が左にずれている)
+            x = 0
+            if( column % 2 != 0):
+                x = x - 1
+            z = row
+            y = -x - z
+
+            converted_cells.append(
+                CellData(
+                    index=index,
+                    row=row,
+                    column=column,
+                    position=[x, y, z],
+                    terrain_code=terrain_code,
+                    state=self._convert_state(terrain_code),
+                )
+            )
+
+    return converted_cells
+
+
+class CellData:
+    #マップのセル情報を格納するクラスを定義
+    def __init__(
+            self,
+            index,
+            row,
+            col,
+            position,
+            terrain_type,
+            state,
+            step_cost,
+            fuel_cost
+    ):
+        self.index = index                               #int #マップのインデックスを格納する変数
+        self.row = row                                   #int #マップの行数を格納する変数
+        self.col = col                                   #int #マップの列数を格納する変数
+        self.position = position                         #List[int] #マップの座標を格納する変数
+        self.terrain_type = terrain_type                 #str #マップの地形タイプを格納する変数
+        self.state = state                               #str #マップの状態を格納する変数
+        self.step_cost = step_cost                       #float #マップの移動コストを格納する変数
+        self.fuel_cost = fuel_cost                       #float #マップの燃料コストを格納する変数
+
+
 class MapData:
     #マップデータを格納するクラスを定義
 
     def __init__(self, data):
-        self.width = data.get("width", 0)                  #int #マップの幅を格納する変数
-        self.height = data.get("height", 0)                #int #マップの高さを格納する変数
-        self.cells = data.get("cells", [])                 #マップのセル情報を格納するリスト
+        self.width = data.get("width", 0)                 #マップの横幅を格納する変数
+        self.height = data.get("height", 0)               #マップの高さを格納する変数
+
+        #APIから受け取った元のデータ
+        self.raw_cells = data.get("cells", [])                     #マップのセル情報を格納する変数
+
+        #探索用に変換したデータ
+        self.cells = self.convert_cells()
+
+        # A*から使いやすい形式
+        self.position = [cell.position for cell in self.cells]
+        self.state = [cell.state for cell in self.cells]
+        self.step_cost = [cell.step_cost for cell in self.cells]
+        self.fuel_cost = [cell.fuel_cost for cell in self.cells]
 
 
 class SpotData:
