@@ -15,13 +15,17 @@ class searched_cells:
         self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
         self.f_cost = 0 #int #検索済みのセルのfコストを格納する変数
 
-class searching_cells(searched_cells): #検索中のセルの情報を格納するクラス
+class searching_cells: #検索中のセルの情報を格納するクラス
     def __init__(self):
-        super().__init__() 
+        self.position = [] #list #検索済みのセルの位置を格納するリスト
+        self.parent = [] #list #検索済みのセルの親ノードを格納するリスト
+        self.g_cost = 0 #int #検索済みのセルのgコストを格納する変数
+        self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
+        self.f_cost = 0 #int #検索済みのセルのfコストを格納する変数
 
 def heuristic(position,goal_position):
 
-    return sum((p-g)**2 for p,g in zip(position,goal_position))**0.5
+    return 
 
 class AstarAlgorithm:
     # A*アルゴリズムを実装するクラス
