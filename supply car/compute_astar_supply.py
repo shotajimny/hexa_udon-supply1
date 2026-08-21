@@ -70,7 +70,7 @@ class AstarAlgorithm:
                 if self.map_data.state[position_index] == 'lake': #セルが通行可能かどうかを判定
                     continue #通行不可能なセルはスキップ
                 neighbor_cell.parent = current_cell.position
-                neighbor_cell.g_cost = current_cell.g_cost
+                neighbor_cell.g_cost = current_cell.g_cost+1
                 neighbor_cell.h_cost = heuristic(neighbor_cell.position, goal_position)  # 仮のヒューリスティックコスト、実際のヒューリスティック計算はgoal_positionに基づいて行う必要がある
                 neighbor_cell.f_cost = neighbor_cell.g_cost + neighbor_cell.h_cost
 
@@ -100,17 +100,17 @@ class AstarAlgorithm:
 
         # goal_positionに到達した場合、経路を復元する処理をここに追加する
         self.path = []
-        while current_cell.parent is not None:
-            self.path.append(current_cell.position)
-            parent_index = self.closed_set.position.index(current_cell.parent)
-            current_cell = {
-                'position': self.closed_set.position[parent_index],
-                'parent': self.closed_set.parent[parent_index],
-                'g_cost': self.closed_set.g_cost[parent_index],
-                'h_cost': self.closed_set.h_cost[parent_index],
-                'f_cost': self.closed_set.f_cost[parent_index]
-            }
-        self.path.append(current_cell['position']) # agent_positionを追加
-        self.path.reverse() # 経路を逆順にする
 
-        return self.path  # 計算結果の経路を返す
+        while current_cell is not None:
+            self.path.append(current_cell.position)
+
+            if current_cell.parent is None:
+               break
+
+        current_cell = next(
+            cell for cell in self.closed_set
+            if cell.position == current_cell.parent
+        )
+
+        self.path.reverse()
+        return self.path
