@@ -42,13 +42,14 @@ class AstarAlgorithm:
         # map_data: マップデータ（2Dリストなど）
         self.map_data = map_data  # マップデータを格納
      
-    # A*アルゴリズムのロジックをここに実装する
     def search_astar(self, agent_position, goal_position):
-        # A*アルゴリズムの探索を行う関数
-        # agent_position: エージェントの現在位置
-        # goal_position: 目標位置
-        # ここにA*アルゴリズムの探索ロジックを追加する
-        #スタートセルの初期化
+
+        # 探索開始時に前回の探索結果をリセット
+        self.open_set = []
+        self.closed_set = []
+        self.path = []
+
+        # スタートセルの初期化
         current_cell = cell()
         current_cell.position = agent_position
         current_cell.parent = None
@@ -56,7 +57,7 @@ class AstarAlgorithm:
         current_cell.h_cost = heuristic(current_cell.position, goal_position)
         current_cell.f_cost = current_cell.g_cost + current_cell.h_cost
 
-        self.open_set.append(current_cell) #スタートセルをopen_setに追加
+        self.open_set.append(current_cell)
 
         while current_cell.position != goal_position:
             # 隣接セルの計算と評価を行う
@@ -74,7 +75,7 @@ class AstarAlgorithm:
                 if self.map_data.state[position_index] == 'lake': #セルが通行可能かどうかを判定
                     continue #通行不可能なセルはスキップ
                 neighbor_cell.parent = current_cell.position
-                neighbor_cell.g_cost = current_cell.g_cost+1
+                neighbor_cell.g_cost = current_cell.g_cost + self.map_data.fuel_cost[position_index]  # セルの燃料コストに基づいてg_costを計算
                 neighbor_cell.h_cost = heuristic(neighbor_cell.position, goal_position)  # 仮のヒューリスティックコスト、実際のヒューリスティック計算はgoal_positionに基づいて行う必要がある
                 neighbor_cell.f_cost = neighbor_cell.g_cost + neighbor_cell.h_cost
 
