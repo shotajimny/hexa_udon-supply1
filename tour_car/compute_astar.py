@@ -15,25 +15,6 @@ DIRECTIONS = [
 ]
 
 
-class searched_cells:
-    # 探索済みセルの情報を保持するためのクラス。
-    # ここには、すでに訪問したセルの経路情報を格納する。
-    def __init__(self):
-        self.position = []      # セルの座標 (x, y, z)
-        self.parent = None      # 親ノードの座標
-        self.g_cost = 0         # スタートからの実コスト
-        self.h_cost = 0         # 目標までの推定コスト
-        self.f_cost = 0         # g_cost + h_cost
-
-
-class searching_cells(searched_cells):
-    # 探索中のセルにだけ必要な情報を足したクラス。
-    # 燃料消費量は現在地の評価に使うため保持する。
-    def __init__(self):
-        super().__init__()
-        self.fuel = 0          # そのセルに到達したときの残燃料
-
-
 def heuristic(position, goal_position):
     # ヒューリスティック関数（推定コスト）
     # 六角格子では、3軸座標の最大絶対差分が近い距離になることが多い。
@@ -50,8 +31,6 @@ class AstarAlgorithm:
     def __init__(self):
         # 初期化時に探索に必要な状態を空にする。
         self.map_data = []        # マップ全体の情報
-        self.open_set = []        # 現在探索候補になっているセル
-        self.closed_set = []      # すでに探索済みのセル
         self.path = []            # 最終的に見つかった経路
 
     def map_input(self, map_data):
@@ -117,11 +96,10 @@ class AstarAlgorithm:
         return state not in [None, '', 'lake', 'blocked', 'wall']
 
     def compute_cost(self, position):
-        # 指定セルの移動コストを計算する。
-        # step_cost と fuel_cost があれば、それらを合計して使う。
+        # 指定セルの消費ステップコストと燃料コストを取得する。
         index = self._cell_index(position)
         if index is None:
-            return 1
+            return 1.0, 1.0
 
         step_cost = 1
         fuel_cost = 1
@@ -129,7 +107,33 @@ class AstarAlgorithm:
             step_cost = self.map_data.step_cost[index]
         if hasattr(self.map_data, 'fuel_cost'):
             fuel_cost = self.map_data.fuel_cost[index]
-        return float(step_cost) + float(fuel_cost)
+        return float(step_cost), float(fuel_cost)
+
+    def _find_fuel_exhaustion(self, path, agent_fuel):
+        # A*で求めたパスを実際に進む場合の燃料切れを確認する。
+        # 次のセルへ移動するとき、現在いるセルの消費ステップ数と消費燃料を使用する。
+        if agent_fuel is None:
+            return False, None, None
+
+        remaining_fuel = float(agent_fuel)
+        elapsed_steps = 0.0
+
+        # 最後のgoalから先へは移動しないため、最後のセルは調べない。
+        for index in range(len(path) - 1):
+            current = tuple(path[index])
+            step_cost, fuel_cost = self.compute_cost(current)
+
+            # 現在セルから次のセルへ移動するための燃料が足りない場合、
+            # 現在セルが燃料切れとなる地点になる。
+            if remaining_fuel < fuel_cost:
+                return True, list(current), elapsed_steps
+
+            # 現在セルの消費ステップ数・消費燃料を使って次のセルへ移動する。
+            remaining_fuel -= fuel_cost
+            elapsed_steps += step_cost
+
+        return False, None, None
+
 
     def search_astar(self, agent_position, goal_position, agent_fuel):
         # A*探索のメイン処理。
@@ -147,16 +151,30 @@ class AstarAlgorithm:
 
         # 開始地点または目標地点が通行不能なら探索しない。
         if not self._is_walkable(start) or not self._is_walkable(goal):
-            return []
+            return {
+                "path": [],
+                "fuel_exhausted": False,
+                "fuel_exhausted_position": None,
+                "fuel_exhausted_step": None
+            }
 
         # 同じ地点ならそのまま終了とみなす。
         if start == goal:
-            return [list(start)]
+            return {
+                "path": [list(start)],
+                "fuel_exhausted": False,
+                "fuel_exhausted_position": None,
+                "fuel_exhausted_step": None
+            }
 
         # 燃料が0以下なら進めない。
         if agent_fuel is not None and agent_fuel <= 0:
-            return []
-
+            return {
+                "path": [],
+                "fuel_exhausted": True,
+                "fuel_exhausted_position": list(start),
+                "fuel_exhausted_step": 0
+            }
         # heapq は優先度付きキューで、f = g + h が最小のノードを取り出す。
         open_heap = []
         heapq.heappush(open_heap, (heuristic(start, goal), 0.0, start))
@@ -188,13 +206,8 @@ class AstarAlgorithm:
                     continue
 
                 # その隣接セルへのコストを計算する。
-                move_cost = self.compute_cost(neighbor)
-
-                # 燃料制約を満たさないなら進めない。
-                if agent_fuel is not None and current_cost + move_cost > agent_fuel:
-                    continue
-
-                tentative_g = current_cost + move_cost
+                step_cost, _ = self.compute_cost(current)
+                tentative_g = current_cost + step_cost
 
                 # より短い経路が見つかれば更新する。
                 if tentative_g < g_score.get(neighbor, float('inf')):
@@ -207,7 +220,12 @@ class AstarAlgorithm:
 
         # 目標に到達できなかった場合は空配列を返す。
         if goal not in g_score:
-            return []
+            return {
+                "path": [],
+                "fuel_exhausted": False,
+                "fuel_exhausted_position": None,
+                "fuel_exhausted_step": None
+            }
 
         # 目標から親を辿って経路を復元する。
         path = [goal]
@@ -217,4 +235,13 @@ class AstarAlgorithm:
 
         # 最終的な結果をリスト形式に整形して返す。
         self.path = [list(pos) for pos in path]
-        return self.path
+        fuel_exhausted, fuel_exhausted_position, fuel_exhausted_step = self._find_fuel_exhaustion(
+            self.path, 
+            agent_fuel
+            )
+        return {
+            "path": self.path,
+            "fuel_exhausted": fuel_exhausted,
+            "fuel_exhausted_position": fuel_exhausted_position,
+            "fuel_exhausted_step": fuel_exhausted_step
+        }
