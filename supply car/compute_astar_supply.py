@@ -7,7 +7,7 @@ DIRECTIONS = [
     (0, -1, +1),
 ]
 
-class searched_cells:
+class cell:
     def __init__(self):
         self.position = [] #list #検索済みのセルの位置を格納するリスト
         self.parent = [] #list #検索済みのセルの親ノードを格納するリスト
@@ -15,24 +15,26 @@ class searched_cells:
         self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
         self.f_cost = 0 #int #検索済みのセルのfコストを格納する変数
 
-class searching_cells: #検索中のセルの情報を格納するクラス
-    def __init__(self):
-        self.position = [] #list #検索済みのセルの位置を格納するリスト
-        self.parent = [] #list #検索済みのセルの親ノードを格納するリスト
-        self.g_cost = 0 #int #検索済みのセルのgコストを格納する変数
-        self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
-        self.f_cost = 0 #int #検索済みのセルのfコストを格納する変数
+class MapData:
+    def __init__(self, position, state):
+        self.position = position
+        self.state = state
 
-def heuristic(position,goal_position):
+def heuristic(position, goal_position):
+    # ヒューリスティック関数（推定コスト）
+    # 六角格子では、3軸座標の最大絶対差分が近い距離になることが多い。
+    # ここでは簡潔に最大差分を使って見積もる。:  
+    dx = abs(position[0] - goal_position[0])
+    dy = abs(position[1] - goal_position[1])
+    dz = abs(position[2] - goal_position[2])
+    return max(dx, dy, dz)
 
-    return 
-
-class AstarAlgorithm:
+class AstarAlgorithm:   
     # A*アルゴリズムを実装するクラス
     def __init__(self):
         self.map_data = [] #マップデータを格納するリスト
-        self.open_set : list[searching_cells] = [] #発見済みのセルを格納するリスト
-        self.closed_set : list[searched_cells] = []#検索済みのセルを格納するリスト
+        self.open_set : list[cell] = [] #発見済みのセルを格納するリスト
+        self.closed_set : list[cell] = []#検索済みのセルを格納するリスト
         self.path = [] #計算結果の経路を格納するリスト 
 
     def map_input(self, map_data):
@@ -41,33 +43,31 @@ class AstarAlgorithm:
         self.map_data = map_data  # マップデータを格納
      
     # A*アルゴリズムのロジックをここに実装する
-    def search_astar(self, agent_position, goal_position, agent_fuel):
+    def search_astar(self, agent_position, goal_position):
         # A*アルゴリズムの探索を行う関数
         # agent_position: エージェントの現在位置
         # goal_position: 目標位置
-        # agent_fuel: エージェントの燃料
         # ここにA*アルゴリズムの探索ロジックを追加する
         #スタートセルの初期化
-        current_cell = searching_cells()
+        current_cell = cell()
         current_cell.position = agent_position
         current_cell.parent = None
         current_cell.g_cost = 0
         current_cell.h_cost = heuristic(current_cell.position, goal_position)
         current_cell.f_cost = current_cell.g_cost + current_cell.h_cost
-        current_cell.fuel = agent_fuel
 
         self.open_set.append(current_cell) #スタートセルをopen_setに追加
 
         while current_cell.position != goal_position:
             # 隣接セルの計算と評価を行う
             for direction in DIRECTIONS:
-                neighbor_cell = searching_cells()
+                neighbor_cell = cell()
                 neighbor_cell.position = [
                     current_cell.position[0] + direction[0],
                     current_cell.position[1] + direction[1],
                     current_cell.position[2] + direction[2]
                 ]
-                current_index = self.map_data.position.index(current_cell.position) #現在地の位置インデックスを取得
+                
                 if neighbor_cell.position not in self.map_data.position: #セルがマップ内に存在するかどうかを判定
                     continue #マップ外のセルはスキップ
                 position_index = self.map_data.position.index(neighbor_cell.position) #隣接セルの位置インデックスを取得
@@ -79,6 +79,8 @@ class AstarAlgorithm:
                 neighbor_cell.f_cost = neighbor_cell.g_cost + neighbor_cell.h_cost
 
                 # 隣接セルの評価を行い、open_setに追加する処理をここに追加する
+                if neighbor_cell.position in [cell.position for cell in self.closed_set]:
+                    continue
                 if neighbor_cell.position not in [cell.position for cell in self.open_set]:
                     self.open_set.append(neighbor_cell)
                 else:
@@ -110,11 +112,11 @@ class AstarAlgorithm:
 
             if current_cell.parent is None:
                break
-
-        current_cell = next(
-            cell for cell in self.closed_set
-            if cell.position == current_cell.parent
-        )
+   
+            current_cell = next(
+                cell for cell in self.closed_set
+                if cell.position == current_cell.parent
+                )
 
         self.path.reverse()
         return self.path
