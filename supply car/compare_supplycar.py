@@ -1,7 +1,7 @@
 # Bias_supplycar.pyのselect_spots関数で選ばれたスポットに対して、A*アルゴリズムを実行するためのコードを追加する
 
 # recieveからゲーム情報を取得 
-
+from recieve
 # 補給車の情報、マップデータ、スポットの情報を取得するためのモジュールをインポート
 
 # Bias_supplycar.pyのselect_spots関数を使用して、各補給
