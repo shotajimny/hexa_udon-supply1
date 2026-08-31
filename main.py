@@ -1,27 +1,18 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
+from receive.api_client import get_setting
+from receive.parser import parse_pre_game_data, parse_pre_date_data
 
 app = FastAPI()
 
-# データそれぞれの型を定義
-class tour_vehicle(BaseModel): #巡回車のデータ構造
-    id: int
-    position: List[float]
-    capacity: int
+#初期設定をとってくる
+@app.get("/setting")
+def get_setting_endpoint():
+    return get_setting()
 
-class supply_vehicle(BaseModel): #補給車のデータ構造
-    id: int
-    position: List[float]
+def rewrite_setting_data():
+    #初期設定を計算用に書き換える
+    return parse_pre_game_data(get_setting())
 
-class map_data(BaseModel): #マップデータの構造
-    width: int
-    height: int
-    status: List[List[float]] #二次元配列でセルそれぞれの状態を表す
-
-@app.post("/run")
-def run_simulation(data: List[tour_vehicle]):
-    return {
-        "status": "ok",
-        "received": data
-    }
+print(rewrite_setting_data())

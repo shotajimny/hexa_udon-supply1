@@ -1,8 +1,8 @@
 # Bias_tourcar.pyのselect_spots関数で選ばれたスポットに対して、A*アルゴリズムを実行するためのコードを追加する
 
-from parser import (
-    parse_pre_game_data, 
-    parse_pre_date_data
+from receive.models2 import (
+    preGameData,
+    preDateData,
 )
 from tour_car.Bias_tourcar import select_spots
 from tour_car.compute_astar import AstarAlgorithm
@@ -11,8 +11,8 @@ from tour_car.compute_astar import AstarAlgorithm
 class calculate_tourcar:
     def __init__(self, data):
         # 計算に必要なデータを用意する
-        self.pre_game = parse_pre_game_data(data)
-        self.pre_date = parse_pre_date_data(data)
+        self.pre_game = preGameData(data)
+        self.pre_date = preDateData(data)
 
     def Bias(self, pre_filter_count):
         # Bias_tourcar.pyのselect_spots関数を使用して、各巡回車から近そうなスポットを数個ずつ取得する
