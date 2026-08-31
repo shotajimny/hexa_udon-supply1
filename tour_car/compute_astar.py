@@ -1,141 +1,247 @@
-#　A*アルゴリズムを実装するためのモジュール
+# A*アルゴリズムを実装するためのモジュール
+# このファイルでは、六角格子上を移動するエージェントの経路探索を行う。
+# 各セルは3次元座標 (x, y, z) で表し、六方向への移動を考慮する。
+import heapq
+
+# 六角格子での6方向への移動量を定義する。
+# これは「1歩で進める隣接セル」の差分座標である。
 DIRECTIONS = [
     [+1, -1, 0],
     [+1, 0, -1],
     [0, +1, -1],
-    [-1, +1,  0],
-    [-1,  0, +1],
-    [ 0, -1, +1]
+    [-1, +1, 0],
+    [-1, 0, +1],
+    [0, -1, +1],
 ]
 
-class searched_cells: #検索済みのセルの情報を格納するクラス
-    def __init__(self):
-        self.position = [] #list #検索済みのセルの位置を格納するリスト
-        self.parent = [] #list #検索済みのセルの親ノードを格納するリスト
-        self.g_cost = 0 #int #検索済みのセルのgコストを格納する変数
-        self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
-        self.f_cost = 0 #int #検索済みのセルのfコストを格納する変数
-
-class searching_cells(searched_cells): #検索中のセルの情報を格納するクラス
-    def __init__(self):
-        super().__init__() 
-        self.fuel = 0 #int #検索中のセルの燃料を格納する変数
 
 def heuristic(position, goal_position):
-        # ヒューリスティック関数の計算を行う関数
-        # position: 現在位置
-        # goal_position: 目標位置
-        # ここにヒューリスティック関数の実装を追加する
-        return sum((p - g) ** 2 for p, g in zip(position, goal_position)) ** 0.5  # ユークリッド距離を使用
+    # ヒューリスティック関数（推定コスト）
+    # 六角格子では、3軸座標の最大絶対差分が近い距離になることが多い。
+    # ここでは簡潔に最大差分を使って見積もる。
+    dx = abs(position[0] - goal_position[0])
+    dy = abs(position[1] - goal_position[1])
+    dz = abs(position[2] - goal_position[2])
+    return max(dx, dy, dz)
 
-def compute_cost(position, map_data):
-        # コスト計算を行う関数
-        # map_dataはapi.pyから取得する必要がある
-        # position: 現在位置
-        # ここにコスト計算の実装を追加する
-        index = map_data.pos.index(position) #位置インデックスを取得
-        step_cost = map_data.step_cost[index] #位置インデックスに対応するステップコストを取得
-        fuel_cost = map_data.fuel_cost[index] #位置インデックスに対応する燃料コストを取得
-        return step_cost + fuel_cost  # ステップコストと燃料コスト
 
 class AstarAlgorithm:
-    # A*アルゴリズムを実装するクラス
+    # A*探索をまとめて管理するクラス。
+    # このクラスが、地図の受け取りから経路計算・結果の返却までを担当する。
     def __init__(self):
-        self.map_data = [] #マップデータを格納するリスト
-        self.open_set : list[searching_cells] = [] #発見済みのセルを格納するリスト
-        self.closed_set : list[searched_cells] = []#検索済みのセルを格納するリスト
-        self.path = [] #計算結果の経路を格納するリスト 
+        # 初期化時に探索に必要な状態を空にする。
+        self.map_data = []        # マップ全体の情報
+        self.path = []            # 最終的に見つかった経路
 
     def map_input(self, map_data):
-        # A*アルゴリズムに必要なマップデータを設定する関数
-        # map_data: マップデータ（2Dリストなど）
-        self.map_data = map_data  # マップデータを格納
+        # 外部からマップデータを受け取る。
+        # これは API から取得した地図情報や仮のテストデータでも使える。
+        self.map_data = map_data
 
-    def compute_cost(self,position):
-        # コスト計算を行う関数
-        # map_dataはapi.pyから取得する必要がある
-        # position: 現在位置
-        # ここにコスト計算の実装を追加する
-        index = self.map_data.pos.index(position) #位置インデックスを取得
-        step_cost = self.map_data.step_cost[index] #位置インデックスに対応するステップコストを取得
-        fuel_cost = self.map_data.fuel_cost[index] #位置インデックスに対応する燃料コストを取得
-        return step_cost + fuel_cost  # ステップコストと燃料コスト   
-     
-    # A*アルゴリズムのロジックをここに実装する
+    def _get_positions(self):
+        # マップ上の全セルの座標を取得する。
+        # 例: data.position, data.pos, または dict['position'] を許容する。
+        if hasattr(self.map_data, 'position'):
+            return list(self.map_data.position)
+        if hasattr(self.map_data, 'pos'):
+            return list(self.map_data.pos)
+        if isinstance(self.map_data, dict):
+            return self.map_data.get('position') or self.map_data.get('positions') or []
+        return []
+
+    def _get_states(self):
+        # 各セルの状態を取得する。
+        # 'land' なら進める, 'lake' なら進めない という扱いを想定する。
+        if hasattr(self.map_data, 'state'):
+            return list(self.map_data.state)
+        if hasattr(self.map_data, 'status'):
+            return list(self.map_data.status)
+        if isinstance(self.map_data, dict):
+            return self.map_data.get('state') or self.map_data.get('status') or []
+        return []
+
+    def _cell_index(self, position):
+        # 指定した座標が map_data 内のどのインデックスに対応するかを返す。
+        positions = self._get_positions()
+        if not positions:
+            return None
+
+        target = list(position)
+        if target in positions:
+            return positions.index(target)
+        return None
+
+    def _is_walkable(self, position):
+        # 指定座標に進めるかどうかを確認する。
+        # 進めないセルは 'lake', 'wall', 'blocked' などを想定する。
+        positions = self._get_positions()
+        if not positions:
+            # マップデータが未定義なら、とりあえず進める扱いにする。
+            return True
+
+        index = self._cell_index(position)
+        if index is None:
+            # マップ上に存在しない座標は進めない。
+            return False
+
+        states = self._get_states()
+        if not states:
+            # 状態情報がない場合は通行可能とみなす。
+            return True
+
+        if index >= len(states):
+            return False
+
+        state = states[index]
+        return state not in [None, '', 'lake', 'blocked', 'wall']
+
+    def compute_cost(self, position):
+        # 指定セルの消費ステップコストと燃料コストを取得する。
+        index = self._cell_index(position)
+        if index is None:
+            return 1.0, 1.0
+
+        step_cost = 1
+        fuel_cost = 1
+        if hasattr(self.map_data, 'step_cost'):
+            step_cost = self.map_data.step_cost[index]
+        if hasattr(self.map_data, 'fuel_cost'):
+            fuel_cost = self.map_data.fuel_cost[index]
+        return float(step_cost), float(fuel_cost)
+
+    def _find_fuel_exhaustion(self, path, agent_fuel):
+        # A*で求めたパスを実際に進む場合の燃料切れを確認する。
+        # 次のセルへ移動するとき、現在いるセルの消費ステップ数と消費燃料を使用する。
+        if agent_fuel is None:
+            return False, None, None
+
+        remaining_fuel = float(agent_fuel)
+        elapsed_steps = 0.0
+
+        # 最後のgoalから先へは移動しないため、最後のセルは調べない。
+        for index in range(len(path) - 1):
+            current = tuple(path[index])
+            step_cost, fuel_cost = self.compute_cost(current)
+
+            # 現在セルから次のセルへ移動するための燃料が足りない場合、
+            # 現在セルが燃料切れとなる地点になる。
+            if remaining_fuel < fuel_cost:
+                return True, list(current), elapsed_steps
+
+            # 現在セルの消費ステップ数・消費燃料を使って次のセルへ移動する。
+            remaining_fuel -= fuel_cost
+            elapsed_steps += step_cost
+
+        return False, None, None
+
+
     def search_astar(self, agent_position, goal_position, agent_fuel):
-        # A*アルゴリズムの探索を行う関数
-        # agent_position: エージェントの現在位置
+        # A*探索のメイン処理。
+        # agent_position: 現在位置
         # goal_position: 目標位置
-        # agent_fuel: エージェントの燃料
-        # ここにA*アルゴリズムの探索ロジックを追加する
+        # agent_fuel: 現在の燃料量
+        # 戻り値: [ [x, y, z], ... ] の経路座標リスト
+        start = tuple(agent_position)
+        goal = tuple(goal_position)
 
-        #スタートセルの初期化
-        current_cell = searching_cells()
-        current_cell.position = agent_position
-        current_cell.parent = None
-        current_cell.g_cost = 0
-        current_cell.h_cost = heuristic(current_cell.position, goal_position)
-        current_cell.f_cost = current_cell.g_cost + current_cell.h_cost
-        current_cell.fuel = agent_fuel
-
-        self.open_set.append(current_cell) #スタートセルをopen_setに追加
-
-        while current_cell.position != goal_position:
-            # 隣接セルの計算と評価を行う
-            for direction in DIRECTIONS:
-                neighbor_cell = searching_cells()
-                neighbor_cell.position = [
-                    current_cell.position[0] + direction[0],
-                    current_cell.position[1] + direction[1],
-                    current_cell.position[2] + direction[2]
-                ]
-                currrent_index = self.map_data.position.index(current_cell.position) #現在地の位置インデックスを取得
-                position_index = self.map_data.position.index(neighbor_cell.position) #隣接セル位置インデックスを取得
-                if self.map_data.state[position_index] == 'lake': #セルが通行可能かどうかを判定
-                    continue #通行不可能なセルはスキップ
-                neighbor_cell.parent = current_cell.position
-                neighbor_cell.g_cost = current_cell.g_cost + self.compute_cost(neighbor_cell.parent)  # 仮のコスト、実際のコスト計算はmap_dataに基づいて行う必要がある
-                neighbor_cell.h_cost = heuristic(neighbor_cell.position, goal_position)  # 仮のヒューリスティックコスト、実際のヒューリスティック計算はgoal_positionに基づいて行う必要がある
-                neighbor_cell.f_cost = neighbor_cell.g_cost + neighbor_cell.h_cost
-                neighbor_cell.fuel = current_cell.fuel - self.map_data.fuel_cost[currrent_index] #燃料消費計算、map_dataよりセルの状態に依存
-
-                # 隣接セルの評価を行い、open_setに追加する処理をここに追加する
-                if neighbor_cell.position not in [cell.position for cell in self.open_set]:
-                    self.open_set.append(neighbor_cell)
-                else:
-                    # 既にopen_setに存在する場合、g_costが小さい場合は更新する処理をここに追加する
-                    index = next(i for i, cell in enumerate(self.open_set) if cell.position == neighbor_cell.position)
-                    if neighbor_cell.g_cost < self.open_set[index].g_cost:
-                        self.open_set[index] = neighbor_cell
-                        self.open_set[index].f_cost = neighbor_cell.f_cost
-                        self.open_set[index].fuel = neighbor_cell.fuel
-
-            # open_setから最小のf_costを持つセルを選択し、current_cellを更新する処理をここに追加する
-            min_f_cost_index = min(
-                range(len(self.open_set)),
-                key=lambda i: self.open_set[i].f_cost
-            )
-            current_cell = self.open_set[min_f_cost_index]
-            # closed_setにcurrent_cellを追加する処理をここに追加する
-            self.closed_set.append(current_cell)
-
-            # open_setからcurrent_cellを削除する処理をここに追加する
-            del self.open_set[min_f_cost_index]
-
-        # goal_positionに到達した場合、経路を復元する処理をここに追加する
+        # 各探索結果を初期化する。
+        self.open_set = []
+        self.closed_set = []
         self.path = []
-        while current_cell.parent is not None:
-            self.path.append(current_cell.position)
-            parent_index = self.closed_set.position.index(current_cell.parent)
-            current_cell = {
-                'position': self.closed_set.position[parent_index],
-                'parent': self.closed_set.parent[parent_index],
-                'g_cost': self.closed_set.g_cost[parent_index],
-                'h_cost': self.closed_set.h_cost[parent_index],
-                'f_cost': self.closed_set.f_cost[parent_index],
-                'fuel': self.closed_set.fuel[parent_index]
-            }
-        self.path.append(current_cell['position']) # agent_positionを追加
-        self.path.reverse() # 経路を逆順にする
 
-        return self.path  # 計算結果の経路を返す
+        # 開始地点または目標地点が通行不能なら探索しない。
+        if not self._is_walkable(start) or not self._is_walkable(goal):
+            return {
+                "path": [],
+                "fuel_exhausted": False,
+                "fuel_exhausted_position": None,
+                "fuel_exhausted_step": None
+            }
+
+        # 同じ地点ならそのまま終了とみなす。
+        if start == goal:
+            return {
+                "path": [list(start)],
+                "fuel_exhausted": False,
+                "fuel_exhausted_position": None,
+                "fuel_exhausted_step": None
+            }
+
+        # 燃料が0以下なら進めない。
+        if agent_fuel is not None and agent_fuel <= 0:
+            return {
+                "path": [],
+                "fuel_exhausted": True,
+                "fuel_exhausted_position": list(start),
+                "fuel_exhausted_step": 0
+            }
+        # heapq は優先度付きキューで、f = g + h が最小のノードを取り出す。
+        open_heap = []
+        heapq.heappush(open_heap, (heuristic(start, goal), 0.0, start))
+        came_from = {}      # どの親ノードから来たかを記録
+        g_score = {start: 0.0}  # 各座標までの実コスト
+
+        # 探索候補がなくなるまで繰り返す。
+        while open_heap:
+            _, current_cost, current = heapq.heappop(open_heap)
+
+            # すでにより安い経路が見つかっているなら無視する。
+            if current_cost > g_score.get(current, float('inf')):
+                continue
+
+            # 目標に着いたら探索終了。
+            if current == goal:
+                break
+
+            # 現在地から6方向へ隣接セルを確認する。
+            for direction in DIRECTIONS:
+                neighbor = (
+                    current[0] + direction[0],
+                    current[1] + direction[1],
+                    current[2] + direction[2],
+                )
+
+                # 移動先が通行不能ならスキップする。
+                if not self._is_walkable(neighbor):
+                    continue
+
+                # その隣接セルへのコストを計算する。
+                step_cost, _ = self.compute_cost(current)
+                tentative_g = current_cost + step_cost
+
+                # より短い経路が見つかれば更新する。
+                if tentative_g < g_score.get(neighbor, float('inf')):
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g
+                    heapq.heappush(
+                        open_heap,
+                        (tentative_g + heuristic(neighbor, goal), tentative_g, neighbor),
+                    )
+
+        # 目標に到達できなかった場合は空配列を返す。
+        if goal not in g_score:
+            return {
+                "path": [],
+                "fuel_exhausted": False,
+                "fuel_exhausted_position": None,
+                "fuel_exhausted_step": None
+            }
+
+        # 目標から親を辿って経路を復元する。
+        path = [goal]
+        while path[-1] != start:
+            path.append(came_from[path[-1]])
+        path.reverse()
+
+        # 最終的な結果をリスト形式に整形して返す。
+        self.path = [list(pos) for pos in path]
+        fuel_exhausted, fuel_exhausted_position, fuel_exhausted_step = self._find_fuel_exhaustion(
+            self.path, 
+            agent_fuel
+            )
+        return {
+            "path": self.path,
+            "fuel_exhausted": fuel_exhausted,
+            "fuel_exhausted_position": fuel_exhausted_position,
+            "fuel_exhausted_step": fuel_exhausted_step
+        }
