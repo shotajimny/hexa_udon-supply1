@@ -1,10 +1,11 @@
 #受け取ったデータを経路探索用に変換するための関数を定義するファイル
 
 class Convert_Cell:
-    def __init__(self, setting_data):
+    def __init__(self, setting_data, spots=None):
         #初期設定を受け取る
         #初日のデータを受け取る
         self.setting_data = setting_data
+        self.spots = spots or []
         self.cells = self.convert_cells(setting_data)
 
     def rewrite_data(self, data):
@@ -107,6 +108,13 @@ class Convert_Cell:
                     )
                 )
 
+        #スポット情報を対応するセルに設定する
+        for spot in self.spots:
+            index = spot.pos - 1
+            if 0 <= index < len(converted_cells):
+                converted_cells[index].spot = spot
+
+
         return converted_cells
 
     def convert_cells_load(self, data, converted_cells):
@@ -118,14 +126,14 @@ class Convert_Cell:
 
 
 class CellData:
-    def __init__(self, position, terrain_type, state, step_cost, fuel_cost):
+    def __init__(self, position, terrain_type, state, step_cost, fuel_cost, spot=None):
         #マップのセル情報を格納するクラスを定義
         self.position = position                         #List[int] #マップの座標を格納する変数
         self.terrain_type = terrain_type                 #str #マップの地形タイプを格納する変数
         self.state = state                               #int #マップの状態を格納する変数
         self.step_cost = step_cost                       #float #マップの移動コストを格納する変数
         self.fuel_cost = fuel_cost                       #float #マップの燃料コストを格納する変数
-
+        self.spot = spot                                 #SpotData #対応するスポットデータを格納する変数
 
 class SpotData:
     #スポットデータを格納するクラスを定義
@@ -139,8 +147,8 @@ class SpotData:
 class preAgentData:
     #試合開始前のエージェントの情報
 
-    def __init__(self, data):
-        self.pos = data.get("pos", [])                     #int #巡回車の位置を格納する変数
+    def __init__(self, pos):
+        self.pos = pos                    #int #巡回車の位置を格納する変数
 
 
 class OtherPlayerData:
@@ -179,7 +187,7 @@ class PreGameData:
         self.daySeconds = data.get("daySeconds", 0)
         self.daySteps = data.get("daySteps", [])
 
-        self.raw_cells = data.get("cells", [])                     #マップのセル情報を格納する変数
+        self.raw_map = data.get("map", {})                     #マップ情報を格納する変数
 
         self.spots = [
             SpotData(spot)

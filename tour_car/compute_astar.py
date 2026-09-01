@@ -109,7 +109,9 @@ class AstarAlgorithm:
             fuel_cost = self.map_data.fuel_cost[index]
         return float(step_cost), float(fuel_cost)
 
+
     def _calculate_path_info(self, path, agent_fuel):
+        # 経路上の各セルに到達した時点での残燃料量と経過ステップ数を計算する。
         path_info = []
 
         remaining_fuel = float(agent_fuel)
@@ -169,10 +171,12 @@ class AstarAlgorithm:
         # 同じ地点ならそのまま終了とみなす。
         if start == goal:
             return {
-            "position": list(start),
-            "remaining_fuel": float(agent_fuel),
-            "step": 0.0,
-            "exhausted": False
+                "path": [{
+                    "position": list(start),
+                    "remaining_fuel": float(agent_fuel),
+                    "step": 0.0,
+                    "exhausted": False
+                }]
             }
 
         # heapq は優先度付きキューで、f = g + h が最小のノードを取り出す。
