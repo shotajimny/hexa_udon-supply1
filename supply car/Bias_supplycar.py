@@ -1,12 +1,6 @@
-import os
-import sys
+from tour_car.compare_tourcar import calculate_path_tourcar
 
-from transmit.export import export_result #JSON形式で結果を出力する関数をインポート
-
-class prediction_spots: #補給車のクラスを定義
-    
-#補給車とスポットのデータ作成、仮サーバー完成後はサーバーからデータを受け取る形に変更する予定
-
-# supply_car/Bias_supplycar.py
-
-# if __name__ == "__main__" でテスト用に実行
+def create_patrol_paths():
+    # calculate_path_tourcarから巡回車のpathを取得する
+    patrol_paths = calculate_path_tourcar()
+    return patrol_paths     #pathを返す
