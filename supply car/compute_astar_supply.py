@@ -9,7 +9,7 @@ DIRECTIONS = [
 
 class cell:
     def __init__(self):
-        self.position = [] #list #検索済みのセルの位置を格納するリスト
+        self.position = [] #list #検索済みのセルの位置を格納する    リスト
         self.parent = [] #list #検索済みのセルの親ノードを格納するリスト
         self.g_cost = 0 #int #検索済みのセルのgコストを格納する変数
         self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
