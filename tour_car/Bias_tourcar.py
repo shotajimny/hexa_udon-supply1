@@ -34,7 +34,7 @@ class prediction_spots:
             self.distances.append((total_distance, i, self.distance[i]))
         self.distances.sort()
         selected_results = self.distances[:pre_filter_count]
-        self.distance = [(i + 1, distance) for _, i, distance in selected_results]
+        self.distance = [(i, distance) for _, i, distance in selected_results]
 
         return self.distance #測定結果を返す
 

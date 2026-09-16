@@ -1,6 +1,6 @@
 #受け取ったデータを経路探索用に変換するための関数を定義するファイル
 
-class Convert_Cell:
+class CellConverter:
     def __init__(self, setting_data, spots=None):
         #初期設定を受け取る
         #初日のデータを受け取る
@@ -9,12 +9,22 @@ class Convert_Cell:
         self.cells = self.convert_cells(setting_data)
 
     def rewrite_data(self, data):
-        #二日目以降のデータを受け取る
+        # 毎日のデータを更新
         self.date_data = data
 
-        #探索用に変換したデータを更新する
-        #道路セルの状態のみを更新する
-        self.convert_cells_load(self.date_data, self.cells)
+        # 道路セルの情報を更新
+        for road_cell in data.traffics:
+            index = road_cell.pos - 1
+
+            # エラーチェック: 受け取ったデータのposがセルの範囲外でないか確認する
+            if not 0 <= index < len(self.cells):
+                raise ValueError(f"不正な道路位置: {road_cell.pos}")
+
+            self.cells[index].state = road_cell.status
+            self.cells[index].step_cost = self._convert_step_cost(
+                1,
+                road_cell.status
+            )
 
     def _convert_terrain_type(self, terrain_code):
         #地形タイプを変換する関数を定義する
@@ -25,24 +35,6 @@ class Convert_Cell:
             3: "lake"
         }
         return terrain_type_dict.get(terrain_code, "unknown")
-
-
-    def _convert_state(self, terrain_code, row, col):
-
-        #地形状態を変換する関数を定義する(主に道路の状態を変換する)
-        if terrain_code != 1:
-            return 0
-        else:
-            for road_cell in self.date_data.traffics:
-                if road_cell.pos == row * self.setting_data.get("width", 0) + col + 1:
-                    if road_cell.status == 0:
-                        return 0
-                    elif road_cell.status == 1:
-                        return 1
-                    elif road_cell.status == 2:
-                        return 2
-
-        return 0  #道路セルが見つからなかった場合は通常状態とする
 
 
     def _convert_step_cost(self, terrain_code, state):
@@ -90,13 +82,11 @@ class Convert_Cell:
                 terrain_code = data.get("cells", [])[row][col]
 
                 # 3軸座標系に変換する(奇数行が左にずれている)
-                x = 0
-                if( row % 2 != 0):
-                    x = x - 1
-                z = col
+                x = col - (row - (row & 1)) // 2
+                z = row
                 y = -x - z
 
-                state=self._convert_state(terrain_code, row, col)
+                state=0
 
                 converted_cells.append(
                     CellData(
@@ -116,13 +106,6 @@ class Convert_Cell:
 
 
         return converted_cells
-
-    def convert_cells_load(self, data, converted_cells):
-        #道路セルの状態を更新するための関数を定義する
-        for road_cell in data:
-            index = road_cell.pos - 1
-            converted_cells[index].state = road_cell.status
-            converted_cells[index].step_cost = self._convert_step_cost(1, road_cell.status)
 
 
 class CellData:
