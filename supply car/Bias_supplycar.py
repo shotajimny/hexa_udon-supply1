@@ -1,6 +1,11 @@
-from tour_car.compare_tourcar import calculate_path_tourcar
+from tour_car.compare_tourcar import calculate_tourcar
 
-def create_patrol_paths():
-    # calculate_path_tourcarから巡回車のpathを取得する
-    patrol_paths = calculate_path_tourcar()
-    return patrol_paths     #pathを返す
+# data はサーバーから受け取ったゲームデータ
+tourcar = calculate_tourcar(data)
+
+path = tourcar.calculate_path_tourcar(3)
+
+print(path)
+print(type(path))
+print(type(path[0]))
+print(path[0])
