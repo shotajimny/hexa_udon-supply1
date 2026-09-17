@@ -2,6 +2,7 @@
 # このファイルでは、六角格子上を移動するエージェントの経路探索を行う。
 # 各セルは3次元座標 (x, y, z) で表し、六方向への移動を考慮する。
 import heapq
+from math import isfinite
 
 # 六角格子での6方向への移動量を定義する。
 # これは「1歩で進める隣接セル」の差分座標である。
@@ -13,6 +14,9 @@ DIRECTIONS = [
     [-1, 0, +1],
     [0, -1, +1],
 ]
+
+# 燃料消費に対する重みを定義する。これにより、燃料消費が多い経路はコストが高く評価される。
+FUEL_WEIGHT = 0.8  # 燃料消費の重み
 
 
 def heuristic(position, goal_position):
@@ -29,89 +33,70 @@ class AstarAlgorithm:
     # A*探索をまとめて管理するクラス。
     # このクラスが、地図の受け取りから経路計算・結果の返却までを担当する。
     def __init__(self):
-        # 初期化時に探索に必要な状態を空にする。
-        self.map_data = []        # マップ全体の情報
-        self.path = []            # 最終的に見つかった経路
+        self.cells_by_position = {}
+        self.cells_by_id = {}
+        self.path = []
 
-    def map_input(self, map_data):
-        # 外部からマップデータを受け取る。
-        # これは API から取得した地図情報や仮のテストデータでも使える。
-        self.map_data = map_data
+    def map_input(self, cells, spots=None):
+        """変換済みセルを、座標とAPIのセル番号で検索できる形にする。
 
-    def _get_positions(self):
-        # マップ上の全セルの座標を取得する。
-        # 例: data.position, data.pos, または dict['position'] を許容する。
-        if hasattr(self.map_data, 'position'):
-            return list(self.map_data.position)
-        if hasattr(self.map_data, 'pos'):
-            return list(self.map_data.pos)
-        if isinstance(self.map_data, dict):
-            return self.map_data.get('position') or self.map_data.get('positions') or []
-        return []
+        ``cells`` には ``converted_map.cells`` を渡す。互換性のため
+        ``CellConverter`` 自体が渡された場合も、その ``cells`` 属性を使う。
+        ``spots`` は経路探索では使用しないが、既存の呼び出しを壊さないため
+        任意引数として受け取る。
+        """
+        if hasattr(cells, "cells"):
+            cells = cells.cells
 
-    def _get_states(self):
-        # 各セルの状態を取得する。
-        # 'land' なら進める, 'lake' なら進めない という扱いを想定する。
-        if hasattr(self.map_data, 'state'):
-            return list(self.map_data.state)
-        if hasattr(self.map_data, 'status'):
-            return list(self.map_data.status)
-        if isinstance(self.map_data, dict):
-            return self.map_data.get('state') or self.map_data.get('status') or []
-        return []
+        self.cells_by_position = {
+            tuple(cell.position): cell
+            for cell in cells
+        }
+        self.cells_by_id = {
+            index + 1: cell
+            for index, cell in enumerate(cells)
+        }
 
-    def _cell_index(self, position):
-        # 指定した座標が map_data 内のどのインデックスに対応するかを返す。
-        positions = self._get_positions()
-        if not positions:
-            return None
+    def _resolve_position(self, position_or_id):
+        """セル番号または3軸座標を、3軸座標のタプルへ正規化する。"""
+        if isinstance(position_or_id, int):
+            cell = self.cells_by_id.get(position_or_id)
+            return tuple(cell.position) if cell else None
+        return tuple(position_or_id)
 
-        target = list(position)
-        if target in positions:
-            return positions.index(target)
-        return None
+    def _get_cell(self, position):
+        return self.cells_by_position.get(tuple(position))
 
     def _is_walkable(self, position):
-        # 指定座標に進めるかどうかを確認する。
-        # 進めないセルは 'lake', 'wall', 'blocked' などを想定する。
-        positions = self._get_positions()
-        if not positions:
-            # マップデータが未定義なら、とりあえず進める扱いにする。
-            return True
-
-        index = self._cell_index(position)
-        if index is None:
-            # マップ上に存在しない座標は進めない。
+        cell = self._get_cell(position)
+        if cell is None:
             return False
 
-        states = self._get_states()
-        if not states:
-            # 状態情報がない場合は通行可能とみなす。
-            return True
-
-        if index >= len(states):
+        # 地形と状態の両方を確認する。道路の state=0/1/2 は
+        # 通行可能であり、step_cost に混雑コストが反映されている。
+        if cell.terrain_type == "lake":
             return False
 
-        state = states[index]
-        return state not in [None, '', 'lake', 'blocked', 'wall']
+        if cell.state in [None, "", "blocked", "wall"]:
+            return False
+
+        return isfinite(cell.step_cost) and isfinite(cell.fuel_cost)
 
     def compute_cost(self, position):
-        # 指定セルの消費ステップコストと燃料コストを取得する。
-        index = self._cell_index(position)
-        if index is None:
-            return 1.0, 1.0
+        """指定座標の CellData から移動・燃料コストを返す。"""
+        cell = self._get_cell(position)
+        if cell is None:
+            return float("inf"), float("inf")
+        return float(cell.step_cost), float(cell.fuel_cost)
 
-        step_cost = 1
-        fuel_cost = 1
-        if hasattr(self.map_data, 'step_cost'):
-            step_cost = self.map_data.step_cost[index]
-        if hasattr(self.map_data, 'fuel_cost'):
-            fuel_cost = self.map_data.fuel_cost[index]
-        return float(step_cost), float(fuel_cost)
 
     def _calculate_path_info(self, path, agent_fuel):
+        # 経路上の各セルに到達した時点での残燃料量と経過ステップ数を計算する。
+        # (elapsed_steps は引数として受け取るよう後々変更する)
         path_info = []
 
+        # 現在の残燃料量と経過ステップ数を初期化する。
+        # (経過ステップはその日複数回目の経路探索に対応させるため、後々引数から参照するように変更する)
         remaining_fuel = float(agent_fuel)
         elapsed_steps = 0.0
 
@@ -132,12 +117,13 @@ class AstarAlgorithm:
             if index == len(path) - 1:
                 break
 
-            step_cost, fuel_cost = self.compute_cost(current)
+            # 移動先セルのコストを消費する。
+            next_position = path[index + 1]
+            step_cost, fuel_cost = self.compute_cost(next_position)
 
-            # 次のセルへ移動できない場合
+            # 残燃料が足りず次のセルへ移動できない場合は、exhausted を True にする。
             if remaining_fuel < fuel_cost:
                 path_info[-1]["exhausted"] = True
-                break
 
             # 移動コストを消費
             remaining_fuel -= fuel_cost
@@ -152,8 +138,8 @@ class AstarAlgorithm:
         # goal_position: 目標位置
         # agent_fuel: 現在の燃料量
         # 戻り値: [ [x, y, z], ... ] の経路座標リスト
-        start = tuple(agent_position)
-        goal = tuple(goal_position)
+        start = self._resolve_position(agent_position)
+        goal = self._resolve_position(goal_position)
 
         # 各探索結果を初期化する。
         self.open_set = []
@@ -161,25 +147,36 @@ class AstarAlgorithm:
         self.path = []
 
         # 開始地点または目標地点が通行不能なら探索しない。
+        if start is None or goal is None:
+            return {
+                "path": [], 
+                "status": "unreachable"
+            }
+
         if not self._is_walkable(start) or not self._is_walkable(goal):
             return {
-                "path": []
+                "path": [],
+                "status": "unreachable"
             }
 
         # 同じ地点ならそのまま終了とみなす。
         if start == goal:
             return {
-            "position": list(start),
-            "remaining_fuel": float(agent_fuel),
-            "step": 0.0,
-            "exhausted": False
+                "path": [{
+                    "position": list(start),
+                    "remaining_fuel": float(agent_fuel),
+                    "step": 0.0,
+                    "exhausted": False
+                }],
+                "status": "reached_goal"
             }
 
         # heapq は優先度付きキューで、f = g + h が最小のノードを取り出す。
         open_heap = []
         heapq.heappush(open_heap, (heuristic(start, goal), 0.0, start))
-        came_from = {}      # どの親ノードから来たかを記録
-        g_score = {start: 0.0}  # 各座標までの実コスト
+        came_from = {}
+        # 座標ごとに、開始地点からの総合コストの最小値を保持する。
+        g_score = {start: 0.0}
 
         # 探索候補がなくなるまで繰り返す。
         while open_heap:
@@ -205,9 +202,13 @@ class AstarAlgorithm:
                 if not self._is_walkable(neighbor):
                     continue
 
-                # その隣接セルへのコストを計算する。
-                step_cost, _ = self.compute_cost(current)
-                tentative_g = current_cost + step_cost
+                # 移動先セルの CellData を直接参照してコストを計算する。
+                neighbor_cell = self._get_cell(neighbor)
+                step_cost = neighbor_cell.step_cost
+                fuel_cost = neighbor_cell.fuel_cost
+
+                # 移動時間と燃料消費を合算し、補給車の負担も経路評価に加える。
+                tentative_g = current_cost + step_cost + fuel_cost * FUEL_WEIGHT
 
                 # より短い経路が見つかれば更新する。
                 if tentative_g < g_score.get(neighbor, float('inf')):
@@ -215,13 +216,18 @@ class AstarAlgorithm:
                     g_score[neighbor] = tentative_g
                     heapq.heappush(
                         open_heap,
-                        (tentative_g + heuristic(neighbor, goal), tentative_g, neighbor),
+                        (
+                            tentative_g + heuristic(neighbor, goal),
+                            tentative_g,
+                            neighbor,
+                        ),
                     )
 
         # 目標に到達できなかった場合は空配列を返す。
         if goal not in g_score:
             return {
-                "path": []
+                "path": [],
+                "status": "unreachable"
             }
 
         # 目標から親を辿って経路を復元する。
@@ -237,7 +243,16 @@ class AstarAlgorithm:
             self.path,
             agent_fuel
         )
+        
+        # compare側が扱い易いようにキーを追加
+        if not path_info:
+          status = "unreachable"
+        elif path_info[-1]["exhausted"]:
+          status = "fuel_shortage"
+        else:
+          status = "reached_goal"
 
         return {
-            "path": path_info
+            "path": path_info,
+            "status": status
         }
