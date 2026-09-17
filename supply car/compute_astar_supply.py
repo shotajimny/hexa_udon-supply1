@@ -1,3 +1,5 @@
+from suplply car.Bias_supplycar.py import MapData
+
 DIRECTIONS = [
     (+1, -1, 0),
     (+1, 0, -1),
@@ -9,7 +11,7 @@ DIRECTIONS = [
 
 class cell:
     def __init__(self):
-        self.position = [] #list #検索済みのセルの位置を格納するリスト
+        self.position = [] #list #検索済みのセルの位置を格納する    リスト
         self.parent = [] #list #検索済みのセルの親ノードを格納するリスト
         self.g_cost = 0 #int #検索済みのセルのgコストを格納する変数
         self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
@@ -75,7 +77,7 @@ class AstarAlgorithm:
                 if self.map_data.state[position_index] == 'lake': #セルが通行可能かどうかを判定
                     continue #通行不可能なセルはスキップ
                 neighbor_cell.parent = current_cell.position
-                neighbor_cell.g_cost = current_cell.g_cost + self.map_data.fuel_cost[position_index]  # セルの燃料コストに基づいてg_costを計算
+                neighbor_cell.g_cost = current_cell.g_cost + 1  # 1マスの移動をコスト1として計算
                 neighbor_cell.h_cost = heuristic(neighbor_cell.position, goal_position)  # 仮のヒューリスティックコスト、実際のヒューリスティック計算はgoal_positionに基づいて行う必要がある
                 neighbor_cell.f_cost = neighbor_cell.g_cost + neighbor_cell.h_cost
 
@@ -121,3 +123,42 @@ class AstarAlgorithm:
 
         self.path.reverse()
         return self.path
+
+def select_one_path_per_supply(assignments, astar, start_positions):
+    selected_paths = []
+
+    for supply_id in sorted({assignment["supply_id"] for assignment in assignments}):
+        supply_assignments = [
+            assignment
+            for assignment in assignments
+            if assignment["supply_id"] == supply_id
+        ]
+        start_position = start_positions.get(supply_id, [0, 0, 0])
+        path_candidates = []
+
+        for assignment in supply_assignments:
+            goal_position = list(assignment["meeting_point"])
+            path = astar.search_astar(start_position, goal_position)
+
+            if path is None:
+                continue
+
+            path_candidates.append(
+                {
+                    "supply_id": supply_id,
+                    "tourcar_id": assignment["tourcar_id"],
+                    "meeting_point": assignment["meeting_point"],
+                    "path": path,
+                    "path_cost": len(path) - 1,
+                }
+            )
+
+        if path_candidates:
+            selected_paths.append(
+                min(
+                    path_candidates,
+                    key=lambda candidate: candidate["path_cost"],
+                )
+            )
+
+    return selected_paths
