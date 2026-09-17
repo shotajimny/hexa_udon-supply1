@@ -77,7 +77,7 @@ class AstarAlgorithm:
                 if self.map_data.state[position_index] == 'lake': #セルが通行可能かどうかを判定
                     continue #通行不可能なセルはスキップ
                 neighbor_cell.parent = current_cell.position
-                neighbor_cell.g_cost = current_cell.g_cost + self.map_data.fuel_cost[position_index]  # セルの燃料コストに基づいてg_costを計算
+                neighbor_cell.g_cost = current_cell.g_cost + 1  # 1マスの移動をコスト1として計算
                 neighbor_cell.h_cost = heuristic(neighbor_cell.position, goal_position)  # 仮のヒューリスティックコスト、実際のヒューリスティック計算はgoal_positionに基づいて行う必要がある
                 neighbor_cell.f_cost = neighbor_cell.g_cost + neighbor_cell.h_cost
 
