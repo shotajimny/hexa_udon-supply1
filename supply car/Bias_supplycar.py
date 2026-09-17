@@ -1,3 +1,4 @@
+# 補給対象を選択する関数
 def select_supply_targets(self, all_paths):
     # すべての巡回車の経路候補を評価し、
     # 各補給車から優先度の高い巡回車を選択する
@@ -7,29 +8,33 @@ def select_supply_targets(self, all_paths):
     supply_pos = self.pre_date.agents[supply_id].pos
 
     # 2. 評価結果を管理
-    candidates = []
+    candidates = []  
 
-    # 3. 巡回車ごとに合流地点と評価値を計算
+    # 3. 巡回車を1台ずつ取り出して評価
     for candidate in all_paths:
+
+        # 巡回車IDと経路を取得
         tourcar_id = candidate["agent_id"]
         path = candidate["path"]
 
         # 巡回車の残燃料を取得
         fuel = self.pre_date.agents[tourcar_id].fuel
 
-        # 経路上で最も近い合流地点を探索
+        # 合流地点探索用の初期値
         best_distance = float("inf")
         meeting_point = None
 
-        # 巡回車の経路上を1マスずつ調べ、最も近い合流地点を探索
+        # 4. 巡回車の経路上を1マスずつ調べる
+        #    最も近い地点を合流地点として採用
         for point in path:
+
             distance = self.hex_distance(supply_pos, point)
 
             if distance < best_distance:
                 best_distance = distance
                 meeting_point = point
 
-        # 直線距離と残燃料から評価値を計算
+        # 5. 直線距離と残燃料から評価値を計算
         score = best_distance * 0.4 + fuel * 0.6
 
         # 補給対象候補として保存
@@ -40,13 +45,14 @@ def select_supply_targets(self, all_paths):
             "score": score
         })
 
-    # 4. 評価値の低い順にソート
+    # 6. 評価値の低い順にソート
     sorted_targets = sorted(candidates, key=lambda x: x["score"])
 
-    # 5. scoreを除いた配列を作成
-    assignments = []
+    # 7. scoreを除いたデータを作成
+    assignments = []  
 
-    for target in sorted_targets:
+    # 上位5件の結果を返す
+    for target in sorted_targets[:5]:
         assignments.append({
             "supply_id": target["supply_id"],
             "tourcar_id": target["tourcar_id"],
