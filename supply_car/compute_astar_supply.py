@@ -1,4 +1,4 @@
-from suplply car.Bias_supplycar.py import MapData
+from supply_car.Bias_supplycar import MapData
 
 DIRECTIONS = [
     (+1, -1, 0),
