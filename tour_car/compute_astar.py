@@ -132,13 +132,13 @@ class AstarAlgorithm:
         return path_info
 
 
-    def search_astar(self, agent_position, goal_position, agent_fuel):
+    def search_astar(self, current_agent, goal_position):
         # A*探索のメイン処理。
-        # agent_position: 現在位置
+        # current_agent: 現在の巡回車の情報を含む辞書
         # goal_position: 目標位置
         # agent_fuel: 現在の燃料量
         # 戻り値: [ [x, y, z], ... ] の経路座標リスト
-        start = self._resolve_position(agent_position)
+        start = self._resolve_position(current_agent["position"])
         goal = self._resolve_position(goal_position)
 
         # 各探索結果を初期化する。

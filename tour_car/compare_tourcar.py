@@ -8,12 +8,40 @@ class calculate_tourcar:
     def __init__(self, pre_game):
         # インスタンスを受け取って初期化する
         self.pre_game = pre_game
+        self.current_tourcars = []
 
     def Update_Date(self, pre_date, converted_map):
         # 日毎のデータを更新する
         self.pre_date = pre_date
         self.converted_map = converted_map
 
+        self.current_tourcars = [
+            {
+                "id": agent_id,
+                "position": self.converted_map.cells[agent.pos - 1].position,
+                "remaining_fuel": agent.fuel,
+                "remaining_steps": self.pre_game.daySteps[pre_date.day]  # 現在の日の残りステップ数を取得
+            }
+            for agent_id, agent in enumerate(self.pre_date.agents) if agent.kind == 0
+        ]
+
+    def Update_current_tourcars(self, assignment_result):
+        # 割り当て結果に基づいて、各巡回車の位置と残り燃料を更新する
+        for assignment in assignment_result["assignments"]:
+            agent_id = assignment["agent_id"]
+
+            for tourcar in self.current_tourcars:
+                if tourcar["id"] == agent_id:
+
+                    last_path = assignment["path"][-1]
+
+                    tourcar["position"] = last_path["position"]
+                    tourcar["remaining_fuel"] = last_path["remaining_fuel"]
+                    tourcar["remaining_steps"] -= last_path["step"]
+
+                    break
+
+            
     def Bias(self, pre_filter_count):
         # 各巡回車から近そうなスポットをpre_filter_count個取得する
         # 巡回車のIDを取得
@@ -32,7 +60,7 @@ class calculate_tourcar:
 
         return select_spots(bias_agents, spot_positions, pre_filter_count)
 
-    def compute_astar(self, result):
+    def compute_astar(self, current_agent, result):
         # 各 tourcar - spot ペアについて A* 実行し、すべての経路とコスト情報を保持する
         all_paths = []  # [(agent_id, spot_number, path_info, total_cost), ...]
 
@@ -60,9 +88,13 @@ class calculate_tourcar:
 
                 # A*アルゴリズムを実行して経路を計算
                 path_result = astar.search_astar(
-                    agent_position=agent_position,
+                    current_agent={
+                        "id": agent_id,
+                        "position": agent_position,
+                        "fuel": agent_fuel,
+                        "remaining_steps": self.pre_game.daySteps[self.pre_date.day] - current_agent["remaining_steps"]  # 現在の日の残りステップ数を取得
+                    },
                     goal_position=spot_position,
-                    agent_fuel=agent_fuel
                 )
 
                 # パス情報が存在する場合のみ追加
@@ -76,7 +108,7 @@ class calculate_tourcar:
                         "agent_id": agent_id, #巡回車のIDを格納するキー
                         "spot_number": spot_number, #スポットの番号を格納するキー
                         "path": path_info, #経路情報を格納するキー
-                        "fuel_used": total_fuel_used, #消費燃料量を格納するキー
+                        "remaining_fuel":  path_info[-1]["remaining_fuel"], #残り燃料量を格納するキー
                         "steps": total_steps, #経過ステップ数を格納するキー
                         "status": path_result["status"], #経路のステータスを格納するキー
                         "refuel_position": (
@@ -84,6 +116,8 @@ class calculate_tourcar:
                             if path_result["status"] == "fuel_shortage"
                             else None
                         ), #燃料不足になる位置を格納するキー
+                        "remaining_steps":   # 現在の日の残りステップ数を格納するキー
+                            self.pre_game.daySteps[self.pre_date.day] - path_info[-1]["step"],
                         "combined_cost": total_fuel_used + total_steps * FUEL_WEIGHT  # 燃料と距離の加重
                     })
 
@@ -111,7 +145,7 @@ class calculate_tourcar:
                     "agent_id": agent_id,
                     "spot_number": spot_number,
                     "path": candidate["path"],
-                    "fuel_used": candidate["fuel_used"],
+                    "remaining_fuel": candidate["remaining_fuel"],
                     "steps": candidate["steps"],
                     "status": candidate["status"],
                     "refuel_position": candidate["refuel_position"],
@@ -138,12 +172,12 @@ class calculate_tourcar:
             "unassigned_agents": list(tourcar_ids - assigned_agents)
         }
 
-    def calculate_path_tourcar(self, pre_filter_count):
+    def calculate_path_tourcar(self, day, pre_filter_count):
         # Bias: 各巡回車から近そうなスポットを複数取得
         result = self.Bias(pre_filter_count)
 
         # A*実行: すべての（巡回車, スポット）ペアで経路を計算
-        all_paths = self.compute_astar(result)
+        all_paths = self.compute_astar(self.current_tourcars, result)
 
         # 優先度付けと割り当て: コスト順に、各スポット・巡回車は1度だけ割り当て
         assignment_result = self.prioritize_and_assign(all_paths)
