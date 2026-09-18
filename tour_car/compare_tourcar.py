@@ -9,11 +9,13 @@ class calculate_tourcar:
         # インスタンスを受け取って初期化する
         self.pre_game = pre_game
         self.current_tourcars = []
+        self.astar = AstarAlgorithm()
 
     def Update_Date(self, pre_date, converted_map):
         # 日毎のデータを更新する
         self.pre_date = pre_date
         self.converted_map = converted_map
+        self.astar.map_input(self.converted_map.cells)
 
         self.current_tourcars = [
             {
@@ -47,10 +49,10 @@ class calculate_tourcar:
         # 巡回車のIDを取得
         bias_agents = [
             prediction_spots(
-                id=agent_id,
-                position=self.converted_map.cells[agent.pos - 1].position
+                id=tourcar["id"],
+                position=tourcar["position"]
             )
-            for agent_id, agent in enumerate(self.pre_date.agents) if agent.kind == 0
+            for tourcar in self.current_tourcars
         ]
 
         spot_positions = [
@@ -60,7 +62,7 @@ class calculate_tourcar:
 
         return select_spots(bias_agents, spot_positions, pre_filter_count)
 
-    def compute_astar(self, current_agent, result):
+    def compute_astar(self, result):
         # 各 tourcar - spot ペアについて A* 実行し、すべての経路とコスト情報を保持する
         all_paths = []  # [(agent_id, spot_number, path_info, total_cost), ...]
 
@@ -70,8 +72,17 @@ class calculate_tourcar:
                 continue
 
             # 巡回車のID, 場所、残り燃料を取得
-            agent_id = tour_results[0]["tourcar_id"]
-            agent = self.pre_date.agents[agent_id]
+            agent_id = tour_results[0]["agent_id"]
+            current_agent = next(
+                tourcar
+                for tourcar in self.current_tourcars
+                if tourcar["id"] == agent_id
+            )
+
+            # 巡回車の位置と残り燃料を取得
+            agent_position = current_agent["position"]
+            agent_fuel = current_agent["remaining_fuel"]
+            agent_remaining_steps = current_agent["remaining_steps"]
 
             for spot_result in tour_results:
 
@@ -79,20 +90,13 @@ class calculate_tourcar:
                 spot_number = spot_result["spot_number"]
                 spot_position = self.converted_map.spots[spot_number].pos
 
-                # 巡回車の位置と残り燃料を取得
-                agent_position = agent.pos
-                agent_fuel = agent.fuel
-
-                astar = AstarAlgorithm()
-                astar.map_input(self.converted_map.cells)  # A*アルゴリズムにマップデータを入力
-
                 # A*アルゴリズムを実行して経路を計算
-                path_result = astar.search_astar(
+                path_result = self.astar.search_astar(
                     current_agent={
                         "id": agent_id,
                         "position": agent_position,
                         "fuel": agent_fuel,
-                        "remaining_steps": self.pre_game.daySteps[self.pre_date.day] - current_agent["remaining_steps"]  # 現在の日の残りステップ数を取得
+                        "remaining_steps": agent_remaining_steps,  # 現在の日の残りステップ数を取得
                     },
                     goal_position=spot_position,
                 )
@@ -117,7 +121,7 @@ class calculate_tourcar:
                             else None
                         ), #燃料不足になる位置を格納するキー
                         "remaining_steps":   # 現在の日の残りステップ数を格納するキー
-                            self.pre_game.daySteps[self.pre_date.day] - path_info[-1]["step"],
+                            agent_remaining_steps - path_info[-1]["step"],
                         "combined_cost": total_fuel_used + total_steps * FUEL_WEIGHT  # 燃料と距離の加重
                     })
 
@@ -172,12 +176,12 @@ class calculate_tourcar:
             "unassigned_agents": list(tourcar_ids - assigned_agents)
         }
 
-    def calculate_path_tourcar(self, day, pre_filter_count):
+    def calculate_path_tourcar(self, pre_filter_count):
         # Bias: 各巡回車から近そうなスポットを複数取得
         result = self.Bias(pre_filter_count)
 
         # A*実行: すべての（巡回車, スポット）ペアで経路を計算
-        all_paths = self.compute_astar(self.current_tourcars, result)
+        all_paths = self.compute_astar(result)
 
         # 優先度付けと割り当て: コスト順に、各スポット・巡回車は1度だけ割り当て
         assignment_result = self.prioritize_and_assign(all_paths)
