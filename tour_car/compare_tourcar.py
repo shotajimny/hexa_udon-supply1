@@ -43,6 +43,14 @@ class calculate_tourcar:
 
                     break
 
+
+    def has_remaining_tourcar_steps(self):
+        # 現在の巡回車の中で、残りステップがあるものが存在するかを判定する関数
+        return any(
+            tourcar["remaining_steps"] > 0
+            for tourcar in self.current_tourcars
+        )
+
             
     def Bias(self, pre_filter_count):
         # 各巡回車から近そうなスポットをpre_filter_count個取得する
@@ -72,7 +80,7 @@ class calculate_tourcar:
                 continue
 
             # 巡回車のID, 場所、残り燃料を取得
-            agent_id = tour_results[0]["agent_id"]
+            agent_id = tour_results[0]["tourcar_id"]
             current_agent = next(
                 tourcar
                 for tourcar in self.current_tourcars
@@ -82,7 +90,6 @@ class calculate_tourcar:
             # 巡回車の位置と残り燃料を取得
             agent_position = current_agent["position"]
             agent_fuel = current_agent["remaining_fuel"]
-            agent_remaining_steps = current_agent["remaining_steps"]
 
             for spot_result in tour_results:
 
@@ -93,10 +100,8 @@ class calculate_tourcar:
                 # A*アルゴリズムを実行して経路を計算
                 path_result = self.astar.search_astar(
                     current_agent={
-                        "id": agent_id,
                         "position": agent_position,
-                        "fuel": agent_fuel,
-                        "remaining_steps": agent_remaining_steps,  # 現在の日の残りステップ数を取得
+                        "fuel": agent_fuel
                     },
                     goal_position=spot_position,
                 )
@@ -120,8 +125,6 @@ class calculate_tourcar:
                             if path_result["status"] == "fuel_shortage"
                             else None
                         ), #燃料不足になる位置を格納するキー
-                        "remaining_steps":   # 現在の日の残りステップ数を格納するキー
-                            agent_remaining_steps - path_info[-1]["step"],
                         "combined_cost": total_fuel_used + total_steps * FUEL_WEIGHT  # 燃料と距離の加重
                     })
 
@@ -176,6 +179,18 @@ class calculate_tourcar:
             "unassigned_agents": list(tourcar_ids - assigned_agents)
         }
 
+    def limit_path_by_remaining_steps(self, path, remaining_steps):
+        # 経路を、残りステップ数に基づいて制限する
+        limited_path = []
+
+        for point in path:
+            if point["step"] > remaining_steps:
+                break
+
+            limited_path.append(point)
+
+        return limited_path
+
     def calculate_path_tourcar(self, pre_filter_count):
         # Bias: 各巡回車から近そうなスポットを複数取得
         result = self.Bias(pre_filter_count)
@@ -185,5 +200,24 @@ class calculate_tourcar:
 
         # 優先度付けと割り当て: コスト順に、各スポット・巡回車は1度だけ割り当て
         assignment_result = self.prioritize_and_assign(all_paths)
+
+        for assignment in assignment_result["assignments"]:
+            agent_id = assignment["agent_id"]
+            path = assignment["path"]
+
+            # 現在の巡回車の残りステップ数を取得
+            current_agent = next(
+                tourcar
+                for tourcar in self.current_tourcars
+                if tourcar["id"] == agent_id
+            )
+
+            remaining_steps = current_agent["remaining_steps"]
+
+            # 経路を残りステップ数に基づいて制限する
+            limited_path = self.limit_path_by_remaining_steps(path, remaining_steps)
+
+            # 制限された経路で更新
+            assignment["path"] = limited_path
 
         return assignment_result

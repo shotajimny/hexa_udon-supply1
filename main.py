@@ -1,5 +1,4 @@
 import time
-from pydantic import BaseModel
 from typing import List
 from api.api_client import get_setting, get_day_data, post_agent_types, post_agent_moves
 from api.models2 import PreGameData, PreDateData, CellConverter
@@ -64,6 +63,7 @@ class Divide_AgentType():
         # 分けたエージェントの種類をAPIに送信する
         post_agent_types(self.divided_agents["kinds"])
 
+
 class Result_post():
     # 結果をPOSTするための処理をまとめるクラス
     def __init__(self, result_data):
@@ -79,6 +79,7 @@ class Result_post():
     def Post_Result(self):
         # 結果データをAPIに送信する
         post_agent_moves(self.result_data)
+        
 
 # 実行
 
@@ -109,9 +110,19 @@ for day in range(len(setting.pre_game.daySteps)):
 
     # 5.2 calculate_tourcarのインスタンスに日毎のデータを更新する
     tourcar_calculator.Update_Date(day_data.pre_date, setting.converted_map)
-    # 経路探索を行う
-    result = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
-    # 5.3. 結果をJSON形式で出力し、APIにPOSTする
+
+    while tourcar_calculator.has_remaining_tourcar_steps():
+        # 5.3.1 経路探索を行う
+        result = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
+
+        # 5.3.2 採択された経路をdaily_pathsへまとめる
+
+        # 5.3.3 余ったstepの処理(巡回車)
+    
+    # 5.3.4 余ったstepの処理(補給車)
+
+
+    # 5.4 結果をJSON形式で出力し、APIにPOSTする
     # 仮でresultをそのままPOSTするが、実際にはフォーマットに従ったものを返すようにする
     result_post = Result_post(result)
     result_post.Json_output()

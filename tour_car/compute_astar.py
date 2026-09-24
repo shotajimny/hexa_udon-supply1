@@ -37,7 +37,7 @@ class AstarAlgorithm:
         self.cells_by_id = {}
         self.path = []
 
-    def map_input(self, cells, spots=None):
+    def map_input(self, cells):
         """変換済みセルを、座標とAPIのセル番号で検索できる形にする。
 
         ``cells`` には ``converted_map.cells`` を渡す。互換性のため
@@ -90,14 +90,16 @@ class AstarAlgorithm:
         return float(cell.step_cost), float(cell.fuel_cost)
 
 
-    def _calculate_path_info(self, path, agent_fuel):
+    def _calculate_path_info(self, path, current_agent):
+        """経路上の各セルに到達した時点での残燃料量と経過ステップ数を計算する。"""
+        
         # 経路上の各セルに到達した時点での残燃料量と経過ステップ数を計算する。
         # (elapsed_steps は引数として受け取るよう後々変更する)
         path_info = []
 
         # 現在の残燃料量と経過ステップ数を初期化する。
         # (経過ステップはその日複数回目の経路探索に対応させるため、後々引数から参照するように変更する)
-        remaining_fuel = float(agent_fuel)
+        remaining_fuel = float(current_agent["fuel"])
         elapsed_steps = 0.0
 
         for index, position in enumerate(path):
@@ -164,7 +166,7 @@ class AstarAlgorithm:
             return {
                 "path": [{
                     "position": list(start),
-                    "remaining_fuel": float(agent_fuel),
+                    "remaining_fuel": float(current_agent["fuel"]),
                     "step": 0.0,
                     "exhausted": False
                 }],
@@ -241,7 +243,7 @@ class AstarAlgorithm:
 
         path_info = self._calculate_path_info(
             self.path,
-            agent_fuel
+            current_agent
         )
         
         # compare側が扱い易いようにキーを追加
