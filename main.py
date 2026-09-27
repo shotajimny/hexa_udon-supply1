@@ -83,10 +83,13 @@ class Result_post():
 
 # 実行
 
-# 1.初期設定の取得、PreGameDataの作成、A*探索用マップデータへの変換
+# 1.1 初期設定の取得、PreGameDataの作成、A*探索用マップデータへの変換
 setting = Setting_Pre_Game_Data()
 setting.set_pre_game() #settingをselfとしてPreGameDataのインスタンスを作成する
 setting.Convert_map()
+
+# 1.2 エージェント毎の経路を格納するためのリストを作成する
+daily_paths = []  # 各巡回車の経路を格納するリスト、日毎にリセットされる
 
 # 2.エージェントタイプを決定、JSON形式で出力し、APIに送信する
 divide = Divide_AgentType(setting.pre_game)
@@ -107,6 +110,13 @@ for day in range(len(setting.pre_game.daySteps)):
     day_data = DayData()
     day_data.set_pre_date()
     day_data.Update_Convert_map(setting.converted_map)
+    daily_paths = [
+        {
+            "agent_id": agent_id,
+            "agent_type": agent.kind,
+            "path": []
+        } for agent_id, agent in enumerate(day_data.pre_date.agents)
+    ]  # 各エージェントの経路を格納するリスト、日毎にリセットされる
 
     # 5.2 calculate_tourcarのインスタンスに日毎のデータを更新する
     tourcar_calculator.Update_Date(day_data.pre_date, setting.converted_map)
@@ -116,6 +126,9 @@ for day in range(len(setting.pre_game.daySteps)):
         result = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
 
         # 5.3.2 採択された経路をdaily_pathsへまとめる
+        for assignment in result["assignments"]:
+            agent_id = assignment["agent_id"]
+            daily_paths[agent_id]["path"].extend(assignment["path"][1:])  # 最初の位置はすでにdaily_pathsに格納されているため、1から追加する
 
         # 5.3.3 余ったstepの処理(巡回車)
     
