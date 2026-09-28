@@ -61,6 +61,7 @@ class calculate_tourcar:
                 position=tourcar["position"]
             )
             for tourcar in self.current_tourcars
+            if tourcar["remaining_steps"] > 0  # 残りステップがある巡回車のみを対象とする
         ]
 
         spot_positions = [
@@ -86,6 +87,9 @@ class calculate_tourcar:
                 for tourcar in self.current_tourcars
                 if tourcar["id"] == agent_id
             )
+
+            if current_agent["remaining_steps"] <= 0:
+                continue  # 残りステップがない場合はスキップ
 
             # 巡回車の位置と残り燃料を取得
             agent_position = current_agent["position"]
@@ -151,6 +155,7 @@ class calculate_tourcar:
                 assignments.append({
                     "agent_id": agent_id,
                     "spot_number": spot_number,
+                    "start_position": candidate["path"][0]["position"],
                     "path": candidate["path"],
                     "remaining_fuel": candidate["remaining_fuel"],
                     "steps": candidate["steps"],

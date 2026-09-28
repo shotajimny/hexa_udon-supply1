@@ -4,6 +4,7 @@ from api.api_client import get_setting, get_day_data, post_agent_types, post_age
 from api.models2 import PreGameData, PreDateData, CellConverter
 from divide_agent_type.car_divide import divide_initial_agents
 from tour_car.compare_tourcar import calculate_tourcar
+from tour_car.compute_astar import DIRECTIONS
 
 class Setting_Pre_Game_Data():
     # ゲーム開始前の初期設定を取得し、データの格納やA*探索用セルデータへの変換を行うクラス
@@ -66,19 +67,42 @@ class Divide_AgentType():
 
 class Result_post():
     # 結果をPOSTするための処理をまとめるクラス
-    def __init__(self, result_data):
-        self.result_data = result_data
 
-    def Json_output(self):
+    def Json_output(self, daily_paths):
         # 結果データをJSON形式で出力する
         # 現在は仮のデータを返すが、実際にはフォーマットに従ったものを返すようにする
-        return {
-            "moves": self.result_data
-        }
+        moves = [[] for _ in daily_paths]
 
-    def Post_Result(self):
+        for agent in daily_paths:
+            current_position = agent["start_position"]
+
+            for next_path in agent["path"]:
+                next_position = next_path["position"]
+                direction = next_position - current_position
+
+                if direction == DIRECTIONS[0]:
+                    moves[agent["agent_id"]].append(0)
+                elif direction == DIRECTIONS[1]:
+                    moves[agent["agent_id"]].append(1)
+                elif direction == DIRECTIONS[2]:
+                    moves[agent["agent_id"]].append(2)
+                elif direction == DIRECTIONS[3]:
+                    moves[agent["agent_id"]].append(3)
+                elif direction == DIRECTIONS[4]:
+                    moves[agent["agent_id"]].append(4)
+                elif direction == DIRECTIONS[5]:
+                    moves[agent["agent_id"]].append(5)
+
+                current_position = next_position
+
+            if  agent["waiting_time"] > 0:
+                moves[agent["agent_id"]].append(-agent["waiting_time"])  # 待機時間を負の値で追加する
+
+        return moves
+
+    def Post_Result(self, moves):
         # 結果データをAPIに送信する
-        post_agent_moves(self.result_data)
+        post_agent_moves(moves)
         
 
 # 実行
@@ -114,7 +138,9 @@ for day in range(len(setting.pre_game.daySteps)):
         {
             "agent_id": agent_id,
             "agent_type": agent.kind,
-            "path": []
+            "start_position": None,  # 最初の位置を格納する,
+            "path": [],
+            "waiting_time": 0
         } for agent_id, agent in enumerate(day_data.pre_date.agents)
     ]  # 各エージェントの経路を格納するリスト、日毎にリセットされる
 
@@ -124,22 +150,45 @@ for day in range(len(setting.pre_game.daySteps)):
     while tourcar_calculator.has_remaining_tourcar_steps():
         # 5.3.1 経路探索を行う
         result = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
+        tourcar_calculator.Update_current_tourcars(result)  # 割り当てられた巡回車の情報を更新する
 
         # 5.3.2 採択された経路をdaily_pathsへまとめる
         for assignment in result["assignments"]:
             agent_id = assignment["agent_id"]
             daily_paths[agent_id]["path"].extend(assignment["path"][1:])  # 最初の位置はすでにdaily_pathsに格納されているため、1から追加する
 
+            if daily_paths[agent_id]["start_position"] is None:
+                daily_paths[agent_id]["start_position"] = assignment["path"][0]["position"]  # 最初の位置を格納する
+
         # 5.3.3 余ったstepの処理(巡回車)
-    
+        for assignment in result["assignments"]:
+            agent_id = assignment["agent_id"]
+            path = assignment["path"]
+
+            # 残りstepでは次のマスへ進めなかった場合
+            if path[-1]["step"] == 0:
+
+                current_tourcar = next(
+                    tourcar
+                    for tourcar in tourcar_calculator.current_tourcars
+                    if tourcar["id"] == agent_id
+                )
+
+                # 余ったstepを待機時間として保存
+                daily_paths[agent_id]["waiting_time"] = (
+                    current_tourcar["remaining_steps"]
+                )
+
+                # この巡回車の1日の行動を終了
+                current_tourcar["remaining_steps"] = 0
     # 5.3.4 余ったstepの処理(補給車)
 
 
     # 5.4 結果をJSON形式で出力し、APIにPOSTする
     # 仮でresultをそのままPOSTするが、実際にはフォーマットに従ったものを返すようにする
-    result_post = Result_post(result)
-    result_post.Json_output()
-    result_post.Post_Result()
+    result_post = Result_post()
+    moves = result_post.Json_output(daily_paths)
+    result_post.Post_Result(moves)
 
 
     # エージェントごとのパスをjson形式で出力し、APIにPOSTする
