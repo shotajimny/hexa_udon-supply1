@@ -1,5 +1,5 @@
 # エージェントタイプを分けるための関数をまとめたファイル
-from receive.models2 import PreDateData, PreGameData
+from api.models2 import PreDateData, PreGameData
 
 
 def get_agents(data):

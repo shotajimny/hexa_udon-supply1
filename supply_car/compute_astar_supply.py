@@ -1,164 +1,142 @@
-from supply_car.Bias_supplycar import MapData
+"""補給車用A*。
+
+巡回車用 compute_astar.py と同じ六角座標・通行判定を使う。
+補給車は燃料を消費しないため step_cost のみを経路コストに使う。
+移動 A -> B のコストは、仕様どおり現在地 A の step_cost を参照する。
+"""
+
+import heapq
+from math import isfinite
+
 
 DIRECTIONS = [
-    (+1, -1, 0),
-    (+1, 0, -1),
-    (0, +1, -1),
-    (-1, +1, 0),
-    (-1, 0, +1),
-    (0, -1, +1),
+    [-1, 1, 0],
+    [0, 1, -1],
+    [1, 0, -1],
+    [1, -1, 0],
+    [0, -1, 1],
+    [-1, 0, 1],
 ]
 
-class cell:
-    def __init__(self):
-        self.position = [] #list #検索済みのセルの位置を格納する    リスト
-        self.parent = [] #list #検索済みのセルの親ノードを格納するリスト
-        self.g_cost = 0 #int #検索済みのセルのgコストを格納する変数
-        self.h_cost = 0 #int #検索済みのセルのhコストを格納する変数
-        self.f_cost = 0 #int #検索済みのセルのfコストを格納する変数
-
-class MapData:
-    def __init__(self, position, state):
-        self.position = position
-        self.state = state
 
 def heuristic(position, goal_position):
-    # ヒューリスティック関数（推定コスト）
-    # 六角格子では、3軸座標の最大絶対差分が近い距離になることが多い。
-    # ここでは簡潔に最大差分を使って見積もる。:  
     dx = abs(position[0] - goal_position[0])
     dy = abs(position[1] - goal_position[1])
     dz = abs(position[2] - goal_position[2])
     return max(dx, dy, dz)
 
-class AstarAlgorithm:   
-    # A*アルゴリズムを実装するクラス
+
+class SupplyAstarAlgorithm:
     def __init__(self):
-        self.map_data = [] #マップデータを格納するリスト
-        self.open_set : list[cell] = [] #発見済みのセルを格納するリスト
-        self.closed_set : list[cell] = []#検索済みのセルを格納するリスト
-        self.path = [] #計算結果の経路を格納するリスト 
+        self.cells_by_position = {}
+        self.cells_by_id = {}
 
-    def map_input(self, map_data):
-        # A*アルゴリズムに必要なマップデータを設定する関数
-        # map_data: マップデータ（2Dリストなど）
-        self.map_data = map_data  # マップデータを格納
-     
-    def search_astar(self, agent_position, goal_position):
+    def map_input(self, cells):
+        if hasattr(cells, "cells"):
+            cells = cells.cells
 
-        # 探索開始時に前回の探索結果をリセット
-        self.open_set = []
-        self.closed_set = []
-        self.path = []
+        self.cells_by_position = {
+            tuple(cell.position): cell
+            for cell in cells
+        }
+        self.cells_by_id = {
+            index + 1: cell
+            for index, cell in enumerate(cells)
+        }
 
-        # スタートセルの初期化
-        current_cell = cell()
-        current_cell.position = agent_position
-        current_cell.parent = None
-        current_cell.g_cost = 0
-        current_cell.h_cost = heuristic(current_cell.position, goal_position)
-        current_cell.f_cost = current_cell.g_cost + current_cell.h_cost
+    def _resolve_position(self, position_or_id):
+        if isinstance(position_or_id, int):
+            cell = self.cells_by_id.get(position_or_id)
+            return tuple(cell.position) if cell else None
+        if position_or_id is None:
+            return None
+        return tuple(position_or_id)
 
-        self.open_set.append(current_cell)
+    def _get_cell(self, position):
+        return self.cells_by_position.get(tuple(position))
 
-        while current_cell.position != goal_position:
-            # 隣接セルの計算と評価を行う
-            for direction in DIRECTIONS:
-                neighbor_cell = cell()
-                neighbor_cell.position = [
-                    current_cell.position[0] + direction[0],
-                    current_cell.position[1] + direction[1],
-                    current_cell.position[2] + direction[2]
-                ]
-                
-                if neighbor_cell.position not in self.map_data.position: #セルがマップ内に存在するかどうかを判定
-                    continue #マップ外のセルはスキップ
-                position_index = self.map_data.position.index(neighbor_cell.position) #隣接セルの位置インデックスを取得
-                if self.map_data.state[position_index] == 'lake': #セルが通行可能かどうかを判定
-                    continue #通行不可能なセルはスキップ
-                neighbor_cell.parent = current_cell.position
-                neighbor_cell.g_cost = current_cell.g_cost + 1  # 1マスの移動をコスト1として計算
-                neighbor_cell.h_cost = heuristic(neighbor_cell.position, goal_position)  # 仮のヒューリスティックコスト、実際のヒューリスティック計算はgoal_positionに基づいて行う必要がある
-                neighbor_cell.f_cost = neighbor_cell.g_cost + neighbor_cell.h_cost
+    def _is_walkable(self, position):
+        cell = self._get_cell(position)
+        if cell is None:
+            return False
+        if cell.terrain_type == "lake":
+            return False
+        if cell.state in [None, "", "blocked", "wall"]:
+            return False
+        return isfinite(float(cell.step_cost))
 
-                # 隣接セルの評価を行い、open_setに追加する処理をここに追加する
-                if neighbor_cell.position in [cell.position for cell in self.closed_set]:
-                    continue
-                if neighbor_cell.position not in [cell.position for cell in self.open_set]:
-                    self.open_set.append(neighbor_cell)
-                else:
-                    # 既にopen_setに存在する場合、g_costが小さい場合は更新する処理をここに追加する
-                    index = next(i for i, cell in enumerate(self.open_set) if cell.position == neighbor_cell.position)
-                    if neighbor_cell.g_cost < self.open_set[index].g_cost:
-                        self.open_set[index] = neighbor_cell
-                        self.open_set[index].f_cost = neighbor_cell.f_cost
+    def search_astar(self, start_position, goal_position):
+        start = self._resolve_position(start_position)
+        goal = self._resolve_position(goal_position)
 
-            # open_setから最小のf_costを持つセルを選択し、current_cellを更新する処理をここに追加する
-            if not self.open_set:
-                return None
-            min_f_cost_index = min(
-                range(len(self.open_set)),
-                key=lambda i: self.open_set[i].f_cost
-            )
-            current_cell = self.open_set[min_f_cost_index]
-            # closed_setにcurrent_cellを追加する処理をここに追加する
-            self.closed_set.append(current_cell)
+        if start is None or goal is None:
+            return {"path": [], "status": "unreachable", "steps": float("inf")}
+        if not self._is_walkable(start) or not self._is_walkable(goal):
+            return {"path": [], "status": "unreachable", "steps": float("inf")}
+        if start == goal:
+            return {
+                "path": [{"position": list(start), "step": 0.0}],
+                "status": "reached_goal",
+                "steps": 0.0,
+            }
 
-            # open_setからcurrent_cellを削除する処理をここに追加する
-            del self.open_set[min_f_cost_index]
+        open_heap = []
+        heapq.heappush(open_heap, (heuristic(start, goal), 0.0, start))
+        came_from = {}
+        g_score = {start: 0.0}
 
-        # goal_positionに到達した場合、経路を復元する処理をここに追加する
-        self.path = []
+        while open_heap:
+            _, current_cost, current = heapq.heappop(open_heap)
 
-        while current_cell is not None:
-            self.path.append(current_cell.position)
-
-            if current_cell.parent is None:
-               break
-   
-            current_cell = next(
-                cell for cell in self.closed_set
-                if cell.position == current_cell.parent
-                )
-
-        self.path.reverse()
-        return self.path
-
-def select_one_path_per_supply(assignments, astar, start_positions):
-    selected_paths = []
-
-    for supply_id in sorted({assignment["supply_id"] for assignment in assignments}):
-        supply_assignments = [
-            assignment
-            for assignment in assignments
-            if assignment["supply_id"] == supply_id
-        ]
-        start_position = start_positions.get(supply_id, [0, 0, 0])
-        path_candidates = []
-
-        for assignment in supply_assignments:
-            goal_position = list(assignment["meeting_point"])
-            path = astar.search_astar(start_position, goal_position)
-
-            if path is None:
+            if current_cost > g_score.get(current, float("inf")):
                 continue
+            if current == goal:
+                break
 
-            path_candidates.append(
-                {
-                    "supply_id": supply_id,
-                    "tourcar_id": assignment["tourcar_id"],
-                    "meeting_point": assignment["meeting_point"],
-                    "path": path,
-                    "path_cost": len(path) - 1,
-                }
-            )
+            current_cell = self._get_cell(current)
+            # A -> B の移動では A の step_cost を使う。
+            move_step_cost = float(current_cell.step_cost)
 
-        if path_candidates:
-            selected_paths.append(
-                min(
-                    path_candidates,
-                    key=lambda candidate: candidate["path_cost"],
+            for direction in DIRECTIONS:
+                neighbor = (
+                    current[0] + direction[0],
+                    current[1] + direction[1],
+                    current[2] + direction[2],
                 )
-            )
 
-    return selected_paths
+                if not self._is_walkable(neighbor):
+                    continue
+
+                tentative_g = current_cost + move_step_cost
+                if tentative_g < g_score.get(neighbor, float("inf")):
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g
+                    heapq.heappush(
+                        open_heap,
+                        (
+                            tentative_g + heuristic(neighbor, goal),
+                            tentative_g,
+                            neighbor,
+                        ),
+                    )
+
+        if goal not in g_score:
+            return {"path": [], "status": "unreachable", "steps": float("inf")}
+
+        positions = [goal]
+        while positions[-1] != start:
+            positions.append(came_from[positions[-1]])
+        positions.reverse()
+
+        path = []
+        elapsed_steps = 0.0
+        for index, position in enumerate(positions):
+            path.append({"position": list(position), "step": elapsed_steps})
+            if index < len(positions) - 1:
+                elapsed_steps += float(self._get_cell(position).step_cost)
+
+        return {
+            "path": path,
+            "status": "reached_goal",
+            "steps": elapsed_steps,
+        }
