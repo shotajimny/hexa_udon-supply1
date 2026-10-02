@@ -211,15 +211,14 @@ for day in range(len(setting.pre_game.daySteps)):
         for assignment in result_tourcar["assignments"]:
             agent_id = assignment["agent_id"]
             path = assignment["path"]
+            current_tourcar = next(
+                tourcar
+                for tourcar in tourcar_calculator.current_tourcars
+                if tourcar["id"] == agent_id
+            )
 
             # 残りstepでは次のマスへ進めない且つ残りstepがある場合
-            if path[-1]["step"] == 0 and tourcar_calculator.current_tourcars[agent_id]["remaining_steps"] > 0:
-
-                current_tourcar = next(
-                    tourcar
-                    for tourcar in tourcar_calculator.current_tourcars
-                    if tourcar["id"] == agent_id
-                )
+            if path[-1]["step"] == 0 and current_tourcar["remaining_steps"] > 0:
 
                 # 余ったstepを待機時間として保存
                 daily_paths[agent_id]["waiting_time"] += (
@@ -233,15 +232,14 @@ for day in range(len(setting.pre_game.daySteps)):
         for assignment in result_supplycar["assignments"]:
             supplycar_id = assignment["supply_id"]
             path = assignment["path"]
+            current_supplycar = next(
+                supplycar
+                for supplycar in supplycar_calculator.current_supplycars
+                if supplycar["id"] == supplycar_id
+            )
 
             # 残りstepでは次のマスへ進めない且つ残りstepがある場合
-            if path[-1]["step"] == 0 and supplycar_calculator.current_supplycars[supplycar_id]["remaining_steps"] > 0:
-
-                current_supplycar = next(
-                    supplycar
-                    for supplycar in supplycar_calculator.current_supplycars
-                    if supplycar["id"] == supplycar_id
-                )
+            if path[-1]["step"] == 0 and current_supplycar["remaining_steps"] > 0:
 
                 # 余ったstepを待機時間として保存
                 daily_paths[supplycar_id]["waiting_time"] += (
