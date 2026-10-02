@@ -39,21 +39,18 @@ class CellConverter:
 
     def _convert_step_cost(self, terrain_code, state):
         #移動コストを変換する関数を定義する
-        if terrain_code != 1:
-            step_cost_dict = {
-                0: 2.0,  #平地
-                2: 3.0,  #山地
-                3: float('inf')  #湖
-            }
-        else:
-            step_cost_dict = {
+        if terrain_code == 1:
+            return {
                 0: 1.0,  #順調
                 1: 2.0,  #混雑
-                2: 4.0  #交通渋滞
-            }
-
-
-        return step_cost_dict.get(state, float('inf'))
+                2: 4.0   #交通渋滞
+            }.get(state, float('inf'))
+        else:
+            return {
+                0: 2.0,             # 平地
+                2: 3.0,             # 山地
+                3: float("inf"),    # 池
+            }.get(terrain_code, float("inf"))
 
     def _convert_fuel_cost(self, terrain_code):
         #燃料コストを変換する関数を定義する

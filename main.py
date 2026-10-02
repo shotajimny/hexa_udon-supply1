@@ -83,7 +83,7 @@ class Result_post():
 
                 if action["status"] == "wait":
                     moves[agent["agent_id"]].append(
-                        -action["waiting_time"]
+                        -int(action["waiting_time"])
                     )
                     continue
 
@@ -111,7 +111,7 @@ class Result_post():
 
             # 巡回車の余ったstepsを、movesに追加する
             if  agent["waiting_time"] > 0:
-                moves[agent["agent_id"]].append(-agent["waiting_time"])  
+                moves[agent["agent_id"]].append(-(int(agent["waiting_time"])))
 
         return moves
 
