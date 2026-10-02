@@ -29,34 +29,18 @@ def post_agent_types(data):
     # APIにエージェントタイプを送信する関数を定義する
     url = "http://127.0.0.1:8080/agent"
 
-    response = requests.post(
+    requests.post(
         url,
         params={"token": "token-p0"},
         json=data
     )
-
-    print("POST status:", response.status_code)
-    print("POST response:", response.text)
-
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return response.status_code
 
 def post_agent_moves(data):
     # APIにエージェントの移動データを送信する関数を定義する
     url = "http://127.0.0.1:8080/"
 
-    response = requests.post(
+    requests.post(
         url,
         params={"token": "token-p0"},
         json=data
     )
-
-    print("POST status:", response.status_code)
-    print("POST response:", response.text)
-
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return response.status_code
