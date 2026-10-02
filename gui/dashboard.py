@@ -13,6 +13,7 @@ import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+from result_stats import summarize_acquisitions, replay_acquisitions
 
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = Path(__file__).resolve().parent
@@ -132,7 +133,24 @@ class Store:
                 for e in data['events']:
                     if e['type'] == 'day' and e['day'] in snapshots:
                         e.update(snapshots[e['day']])
-        return {'source': source, 'result': data}
+        acquisitions = self.root / (name + '-acquisitions.json')
+        stats = None
+        if acquisitions.exists():
+            stats = summarize_acquisitions(json.loads(acquisitions.read_text()), len(source['daySteps']))
+            stats['method'] = 'imported'
+            stats['complete'] = True
+        else:
+            stats = replay_acquisitions(source, data)
+        return {'source': source, 'result': data, 'stats': stats}
+
+    def import_result(self, name, records):
+        if name not in self.maps:
+            raise ValueError('未知のマップです')
+        if name in self.jobs:
+            raise ValueError('試合が終了してから獲得履歴を読み込んでください')
+        stats = summarize_acquisitions(records, len(self.maps[name]['daySteps']))
+        save(self.root / (name + '-acquisitions.json'), records)
+        return stats
 
     def start(self, name, fast):
         with self.lock:
@@ -150,13 +168,15 @@ class Store:
         resultpath = self.root / (name + '-result.json')
         # 再実行しても以前の観測結果を失わない。
         previous = [self.root / (name + suffix) for suffix in
-                    ('-result.json', '-config.json', '-client.log', '-server.log')]
+                    ('-result.json', '-config.json', '-client.log', '-server.log', '-acquisitions.json')]
         if any(p.exists() for p in previous):
             archive = self.root / 'archives' / (name + '-' + str(time.time_ns()))
             archive.mkdir(parents=True)
             for path in previous:
                 if path.exists():
                     shutil.copy2(path, archive / path.name)
+            acquisitions = self.root / (name + '-acquisitions.json')
+            acquisitions.unlink(missing_ok=True)
         save(resultpath, {'events': [], 'running': True, 'completed': False})
         try:
             s = self.maps[name]
@@ -251,12 +271,16 @@ class Handler(BaseHTTPRequestHandler):
         if origin and urlparse(origin).netloc != self.headers.get('Host'):
             self.send_json({'error': '異なるオリジンからは実行できません'}, 403); return
         try:
-            if self.path != '/api/start':
+            if self.path not in ('/api/start', '/api/result'):
                 self.send_json({'error': '見つかりません'}, 404); return
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 4096:
+            if not 0 < length <= 262144:
                 raise ValueError('不正なリクエストです')
             body = json.loads(self.rfile.read(length))
+            if self.path == '/api/result':
+                stats = self.server.store.import_result(body['map'], body['records'])
+                self.send_json({'stats': stats})
+                return
             self.server.store.start(body['map'], bool(body.get('fast', False)))
             self.send_json({'started': True}, 202)
         except (ValueError, KeyError) as exc:
