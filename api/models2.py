@@ -79,7 +79,7 @@ class CellConverter:
                 terrain_code = data.get("cells", [])[row][col]
 
                 # 3軸座標系に変換する(奇数行が左にずれている)
-                x = col - (row - (row & 1)) // 2
+                x = col - (row + (row & 1)) // 2
                 z = row
                 y = -x - z
 
