@@ -1,5 +1,6 @@
 # エージェントタイプを分けるための関数をまとめたファイル
-from api.models2 import PreDateData, PreGameData
+from api.models2 import CellConverter, PreDateData, PreGameData
+from tour_car.compute_astar import AstarAlgorithm
 
 
 def get_agents(data):
@@ -26,13 +27,6 @@ def divide_car_kinds(car_count):
     return [0] * kind0_count + [1] * kind1_count
 
 
-def _cube_position(pos, width):
-    # CellConverterと同じ、奇数行が左にずれる0始まりの座標系。
-    row, col = divmod(pos, width)
-    x = col - (row + (row & 1)) // 2
-    return (x, -x - row, row)
-
-
 def divide_initial_agents(data):
     agents = get_agents(data)
     car_count = len(agents)
@@ -41,17 +35,23 @@ def divide_initial_agents(data):
         # スポットがない場合は元のID順で割り当てる。
         return {"kinds": divide_car_kinds(car_count)}
 
-    width = data.raw_map["width"]
-    spot_positions = [_cube_position(spot.pos, width) for spot in data.spots]
+    # 割り当てでは燃料の重みを外し、到着までの最小step数を比較する。
+    # 開始前の道路は初期状態（渋滞なし）で評価する。
+    astar = AstarAlgorithm(fuel_weight=0)
+    astar.map_input(CellConverter(data.raw_map, data.spots))
 
-    def nearest_spot_distance(agent_id):
-        position = _cube_position(agents[agent_id].pos, width)
-        return min(max(abs(a - b) for a, b in zip(position, spot))
-                   for spot in spot_positions)
+    def nearest_spot_steps(agent_id):
+        current_agent = {"position": agents[agent_id].pos, "fuel": float("inf")}
+        best_steps = float("inf")
+        for spot in data.spots:
+            result = astar.search_astar(current_agent, spot.pos)
+            if result["status"] == "reached_goal":
+                best_steps = min(best_steps, result["path"][-1]["step"])
+        return best_steps
 
-    # 同距離ならID順。送信するkinds配列自体は元のエージェント順を保つ。
+    # 到達不能は後順位、同step数ならID順。kindsは元のエージェント順を保つ。
     ranked_ids = sorted(range(car_count),
-                        key=lambda agent_id: (nearest_spot_distance(agent_id), agent_id))
+                        key=lambda agent_id: (nearest_spot_steps(agent_id), agent_id))
     kinds = [1] * car_count
     for agent_id in ranked_ids[:tourcar_count]:
         kinds[agent_id] = 0

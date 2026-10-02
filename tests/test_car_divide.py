@@ -5,9 +5,11 @@ from divide_agent_type.car_divide import divide_car_kinds, divide_initial_agents
 
 
 class CarDivideTests(unittest.TestCase):
-    def data(self, agents, spots, width=10):
+    def data(self, agents, spots, width=10, cells=None):
+        if cells is None:
+            cells = [[0] * width for _ in range(max(agents + spots + [0]) // width + 1)]
         return PreGameData({
-            "map": {"width": width}, "agents": agents,
+            "map": {"width": width, "height": len(cells), "cells": cells}, "agents": agents,
             "spots": [{"pos": pos} for pos in spots],
         })
 
@@ -33,6 +35,22 @@ class CarDivideTests(unittest.TestCase):
         # Their tie is resolved by agent ID rather than rectangular distance.
         self.assertEqual(divide_initial_agents(
             self.data([4, 0], [1], width=3))['kinds'], [0, 1])
+
+    def test_lake_blocks_geometrically_closest_agent(self):
+        self.assertEqual(divide_initial_agents(
+            self.data([0, 5], [2], width=6,
+                      cells=[[0, 3, 0, 0, 0, 0]]))['kinds'], [1, 0])
+
+    def test_road_steps_beat_shorter_hill_route(self):
+        # 左の車は2マスでも丘からの移動に6step、右は3マスで3step。
+        self.assertEqual(divide_initial_agents(
+            self.data([0, 5], [2], width=6,
+                      cells=[[2, 2, 0, 1, 1, 1]]))['kinds'], [1, 0])
+
+    def test_unreachable_tie_preserves_required_counts(self):
+        self.assertEqual(divide_initial_agents(
+            self.data([0, 4, 5], [2], width=6,
+                      cells=[[0, 3, 0, 3, 0, 0]]))['kinds'], [0, 0, 1])
 
     def test_no_spots_falls_back_to_id_order(self):
         self.assertEqual(divide_initial_agents(

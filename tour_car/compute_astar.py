@@ -32,7 +32,8 @@ def heuristic(position, goal_position):
 class AstarAlgorithm:
     # A*探索をまとめて管理するクラス。
     # このクラスが、地図の受け取りから経路計算・結果の返却までを担当する。
-    def __init__(self):
+    def __init__(self, fuel_weight=FUEL_WEIGHT):
+        self.fuel_weight = fuel_weight
         self.cells_by_position = {}
         self.cells_by_id = {}
         self.path = []
@@ -215,7 +216,7 @@ class AstarAlgorithm:
                 fuel_cost = current_cell.fuel_cost
 
                 # 移動時間と燃料消費を合算し、補給車の負担も経路評価に加える。
-                tentative_g = current_cost + step_cost + fuel_cost * FUEL_WEIGHT
+                tentative_g = current_cost + step_cost + fuel_cost * self.fuel_weight
 
                 # より短い経路が見つかれば更新する。
                 if tentative_g < g_score.get(neighbor, float('inf')):
