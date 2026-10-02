@@ -136,8 +136,22 @@ divide.Divide_agents()
 post_data = divide.Json_output()
 divide.Post_AgentType()
 
-# 3.startsATまで待機
-while time.time() < setting.pre_game.startsAt:
+# 3. 開始時刻が確定し、試合が始まるまで待機
+while True:
+    data = get_setting()
+
+    if not isinstance(data, dict):
+        time.sleep(0.1)
+        continue
+
+    starts_at = data.get("startsAt", 0)
+
+    if starts_at > 0:
+        setting.pre_game.startsAt = starts_at
+
+        if time.time() >= starts_at:
+            break
+
     time.sleep(0.1)
 
 # 5.1. PreGameDataのインスタンスをcalculate_tourcarに渡して初期化する
