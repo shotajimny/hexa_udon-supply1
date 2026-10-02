@@ -136,7 +136,8 @@ class Store:
         acquisitions = self.root / (name + '-acquisitions.json')
         stats = None
         if acquisitions.exists():
-            stats = summarize_acquisitions(json.loads(acquisitions.read_text()), len(source['daySteps']))
+            stats = summarize_acquisitions(json.loads(acquisitions.read_text()), len(source['daySteps']),
+                                           (spot['brand'] for spot in source['spots']))
             stats['method'] = 'imported'
             stats['complete'] = True
         else:
@@ -148,7 +149,8 @@ class Store:
             raise ValueError('未知のマップです')
         if name in self.jobs:
             raise ValueError('試合が終了してから獲得履歴を読み込んでください')
-        stats = summarize_acquisitions(records, len(self.maps[name]['daySteps']))
+        stats = summarize_acquisitions(records, len(self.maps[name]['daySteps']),
+                                       (spot['brand'] for spot in self.maps[name]['spots']))
         save(self.root / (name + '-acquisitions.json'), records)
         return stats
 

@@ -2,7 +2,7 @@
 import json
 
 
-def summarize_acquisitions(records, day_count):
+def summarize_acquisitions(records, day_count, all_brands=None):
     if not isinstance(records, list):
         raise ValueError('獲得履歴は配列で指定してください')
     daily = [{'day': day, 'brands': set(), 'total_count': 0}
@@ -18,7 +18,7 @@ def summarize_acquisitions(records, day_count):
         daily[day]['brands'].add(brand)
         daily[day]['total_count'] += count
     brands = set().union(*(d['brands'] for d in daily))
-    return {
+    stats = {
         'total_types': len(brands),
         'total_count': sum(d['total_count'] for d in daily),
         'cumulative_types': sum(len(d['brands']) for d in daily),
@@ -27,6 +27,12 @@ def summarize_acquisitions(records, day_count):
                   'total_count': d['total_count'], 'brands': sorted(d['brands'])}
                  for d in daily],
     }
+    if all_brands is not None:
+        available = set(all_brands)
+        stats['missing_brands'] = sorted(available - brands)
+        for day in stats['days']:
+            day['missing_brands'] = sorted(available - set(day['brands']))
+    return stats
 
 
 def replay_acquisitions(source, result):
@@ -127,10 +133,13 @@ def replay_acquisitions(source, result):
             inventory[pos] -= 1
             records.append({'day': day, 'brand': spots[pos]['brand'], 'count': 1})
         known.append(day)
-    stats = summarize_acquisitions(records, len(source['daySteps']))
+    stats = summarize_acquisitions(records, len(source['daySteps']),
+                                   (spot['brand'] for spot in source['spots']))
     for day in stats['days']:
         if day['day'] not in known:
-            day.update(types=None, total_count=None, brands=None)
+            day.update(types=None, total_count=None, brands=None, missing_brands=None)
+    if len(known) != len(source['daySteps']):
+        stats['missing_brands'] = None
     stats.update(method='replay', known_days=known,
                  complete=len(known) == len(source['daySteps']), notes=notes,
                  start_spot_policy='include_start')

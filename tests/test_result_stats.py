@@ -21,6 +21,15 @@ class ResultStatsTests(unittest.TestCase):
         self.assertEqual([d['types'] for d in r['days']], [2, 2, 0])
         self.assertEqual([d['total_count'] for d in r['days']], [6, 3, 0])
 
+    def test_missing_brands_use_map_brands_with_duplicates_removed(self):
+        r = summarize_acquisitions([
+            {'day': 0, 'brand': 7, 'count': 1},
+            {'day': 1, 'brand': 9, 'count': 1},
+        ], 3, [7, 9, 12, 12])
+        self.assertEqual(r['missing_brands'], [12])
+        self.assertEqual([d['missing_brands'] for d in r['days']],
+                         [[9, 12], [7, 12], [7, 9, 12]])
+
     def test_known_empty_history_is_zero(self):
         self.assertEqual(summarize_acquisitions([], 2)['total_count'], 0)
 
@@ -100,10 +109,14 @@ class ReplayResultTests(unittest.TestCase):
     def test_unsettled_day_and_state_mismatch_are_not_reported_as_zero(self):
         r = replay_acquisitions(self.source(), {'completed': False, 'events': [
             self.day(0), self.answer([[2, -2], [2, -2]])]})
+        self.assertIsNone(r['missing_brands'])
+        self.assertIsNone(r['days'][0]['missing_brands'])
         self.assertEqual(r['known_days'], [])
         self.assertIsNone(r['days'][0]['types'])
         r = replay_acquisitions(self.source(), {'completed': False, 'events': [
             self.day(0), self.answer([[2, -2], [2, -2]]), self.day(1)]})
+        self.assertIsNone(r['missing_brands'])
+        self.assertIsNone(r['days'][0]['missing_brands'])
         self.assertEqual(r['known_days'], [])
         self.assertTrue(r['notes'])
 
