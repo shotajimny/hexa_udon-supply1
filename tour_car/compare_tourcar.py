@@ -54,6 +54,8 @@ class calculate_tourcar:
             
     def Bias(self, pre_filter_count):
         # 各巡回車から近そうなスポットをpre_filter_count個取得する
+        # 同一日において、既に採択されたスポットは除外する
+
         # 巡回車のIDを取得
         bias_agents = [
             prediction_spots(
