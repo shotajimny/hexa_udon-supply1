@@ -6,6 +6,7 @@ from divide_agent_type.car_divide import divide_initial_agents
 from tour_car.compare_tourcar import calculate_tourcar
 from tour_car.compute_astar import DIRECTIONS
 from supply_car.compare_supplycar import calculate_supplycar
+from PathSynchronizer import PathSynchronizer
 
 class Setting_Pre_Game_Data():
     # ゲーム開始前の初期設定を取得し、データの格納やA*探索用セルデータへの変換を行うクラス
@@ -185,69 +186,32 @@ for day in range(len(setting.pre_game.daySteps)):
 
         # 5.3.1 経路探索を行う
         result_tourcar = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
-        result_supplycar = supplycar_calculator.calculate_path_supplycar(result_tourcar["assignments"], choices_per_supply=5)
-
-        # 5.3.2.1 採択された経路をdaily_pathsへまとめる
-        for assignment in result_tourcar["assignments"]:
-            agent_id = assignment["agent_id"]
-
-            for path in assignment["path"][1:]:  # 最初の位置はすでにstart_positionに格納されているため、1から始める
-                daily_paths[agent_id]["path"].append({"status": "move", "position": path["position"]})
-
-            if daily_paths[agent_id]["start_position"] is None:
-                daily_paths[agent_id]["start_position"] = assignment["path"][0]["position"]  # 最初の位置を格納する
-
-        # 5.3.2.2 採択された経路をdaily_pathsへまとめる
-        for assignment in result_supplycar["assignments"]:
-            supplycar_id = assignment["supply_id"]
-
-            for path in assignment["path"][1:]:  # 最初の位置はすでにstart_positionに格納されているため、1から始める
-                daily_paths[supplycar_id]["path"].append({"status": "move", "position": path["position"]})
-
-            if daily_paths[supplycar_id]["start_position"] is None:
-                daily_paths[supplycar_id]["start_position"] = assignment["path"][0]["position"]  # 最初の位置を格納する
-
-        # 5.3.3.1 余ったstepの処理(巡回車)
-        for assignment in result_tourcar["assignments"]:
-            agent_id = assignment["agent_id"]
-            path = assignment["path"]
-            current_tourcar = next(
-                tourcar
-                for tourcar in tourcar_calculator.current_tourcars
-                if tourcar["id"] == agent_id
+        result_supplycar = supplycar_calculator.calculate_path_supplycar(
+            result_tourcar["assignments"],
+            tour_elapsed_steps={
+                car["id"]: setting.pre_game.daySteps[day] - car["remaining_steps"]
+                for car in tourcar_calculator.current_tourcars
+            },
+            choices_per_supply=5,
+        )
+        synchronizer = PathSynchronizer(
+            result_tourcar["assignments"], result_supplycar["assignments"]
+        )
+        result_tourcar["assignments"], result_supplycar["assignments"] = (
+            synchronizer.synchronize_paths(
+                tourcar_calculator.current_tourcars,
+                supplycar_calculator.current_supplycars,
+                setting.converted_map,
+                setting.pre_game.fuelLimits,
+                setting.pre_game.daySteps[day],
             )
+        )
 
-            # 残りstepでは次のマスへ進めない且つ残りstepがある場合
-            if path[-1]["step"] == 0 and current_tourcar["remaining_steps"] > 0:
-
-                # 余ったstepを待機時間として保存
-                daily_paths[agent_id]["waiting_time"] += (
-                    current_tourcar["remaining_steps"]
-                )
-
-                # この巡回車の1日の行動を終了
-                current_tourcar["remaining_steps"] = 0
-
-        # 5.3.3.2 余ったstepの処理(補給車)
+        # 同期済みの移動と途中待機を、そのまま回答に反映する。
+        for assignment in result_tourcar["assignments"]:
+            daily_paths[assignment["agent_id"]]["path"].extend(assignment["actions"])
         for assignment in result_supplycar["assignments"]:
-            supplycar_id = assignment["supply_id"]
-            path = assignment["path"]
-            current_supplycar = next(
-                supplycar
-                for supplycar in supplycar_calculator.current_supplycars
-                if supplycar["id"] == supplycar_id
-            )
-
-            # 残りstepでは次のマスへ進めない且つ残りstepがある場合
-            if path[-1]["step"] == 0 and current_supplycar["remaining_steps"] > 0:
-
-                # 余ったstepを待機時間として保存
-                daily_paths[supplycar_id]["waiting_time"] += (
-                    current_supplycar["remaining_steps"]
-                )
-
-                # この補給車の1日の行動を終了
-                current_supplycar["remaining_steps"] = 0
+            daily_paths[assignment["supply_id"]]["path"].extend(assignment["actions"])
 
         # 割り当てられたエージェントの情報を更新する
         tourcar_calculator.Update_current_tourcars(result_tourcar)  

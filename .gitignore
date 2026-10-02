@@ -1,2 +1,8 @@
 .DS_Store
 /venv
+
+/gui-runs/
+
+__pycache__/
+/servers/
+/maps/
