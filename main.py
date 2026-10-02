@@ -5,6 +5,7 @@ from api.models2 import PreGameData, PreDateData, CellConverter
 from divide_agent_type.car_divide import divide_initial_agents
 from tour_car.compare_tourcar import calculate_tourcar
 from tour_car.compute_astar import DIRECTIONS
+from supply_car.compare_supplycar import calculate_supplycar
 
 class Setting_Pre_Game_Data():
     # ゲーム開始前の初期設定を取得し、データの格納やA*探索用セルデータへの変換を行うクラス
@@ -73,30 +74,44 @@ class Result_post():
         # 現在は仮のデータを返すが、実際にはフォーマットに従ったものを返すようにする
         moves = [[] for _ in daily_paths]
 
+        # daily_pathsの各エージェントの経路を解析し、movesに変換する
         for agent in daily_paths:
             current_position = agent["start_position"]
 
-            for next_path in agent["path"]:
-                next_position = next_path["position"]
-                direction = next_position - current_position
+            # 経路をフォーマットに従った形にし、movesに変換する
+            for action in agent["path"]:
 
-                if direction == DIRECTIONS[0]:
-                    moves[agent["agent_id"]].append(0)
-                elif direction == DIRECTIONS[1]:
-                    moves[agent["agent_id"]].append(1)
-                elif direction == DIRECTIONS[2]:
-                    moves[agent["agent_id"]].append(2)
-                elif direction == DIRECTIONS[3]:
-                    moves[agent["agent_id"]].append(3)
-                elif direction == DIRECTIONS[4]:
-                    moves[agent["agent_id"]].append(4)
-                elif direction == DIRECTIONS[5]:
-                    moves[agent["agent_id"]].append(5)
+                if action["status"] == "wait":
+                    moves[agent["agent_id"]].append(
+                        -action["waiting_time"]
+                    )
+                    continue
 
-                current_position = next_position
+                if action["status"] == "move":
+                    next_position = action["position"]
+                    # 移動方向をDIRECTIONSのインデックスに変換してmovesに追加する
+                    direction = (
+                        next_position[i] - current_position[i] for i in range(3)
+                    )
 
+                    if direction == DIRECTIONS[0]:
+                        moves[agent["agent_id"]].append(0)
+                    elif direction == DIRECTIONS[1]:
+                        moves[agent["agent_id"]].append(1)
+                    elif direction == DIRECTIONS[2]:
+                        moves[agent["agent_id"]].append(2)
+                    elif direction == DIRECTIONS[3]:
+                        moves[agent["agent_id"]].append(3)
+                    elif direction == DIRECTIONS[4]:
+                        moves[agent["agent_id"]].append(4)
+                    elif direction == DIRECTIONS[5]:
+                        moves[agent["agent_id"]].append(5)
+
+                    current_position = next_position
+
+            # 巡回車の余ったstepsを、movesに追加する
             if  agent["waiting_time"] > 0:
-                moves[agent["agent_id"]].append(-agent["waiting_time"])  # 待機時間を負の値で追加する
+                moves[agent["agent_id"]].append(-agent["waiting_time"])  
 
         return moves
 
@@ -127,6 +142,7 @@ while time.time() < setting.pre_game.startsAt:
 
 # 5.1. PreGameDataのインスタンスをcalculate_tourcarに渡して初期化する
 tourcar_calculator = calculate_tourcar(setting.pre_game)
+supplycar_calculator = calculate_supplycar(setting.pre_game)
 
 # 4.試合終了まで日数分ループする
 for day in range(len(setting.pre_game.daySteps)):
@@ -138,7 +154,7 @@ for day in range(len(setting.pre_game.daySteps)):
         {
             "agent_id": agent_id,
             "agent_type": agent.kind,
-            "start_position": None,  # 最初の位置を格納する,
+            "start_position": agent.pos,  # 最初の位置を格納する,
             "path": [],
             "waiting_time": 0
         } for agent_id, agent in enumerate(day_data.pre_date.agents)
@@ -146,27 +162,44 @@ for day in range(len(setting.pre_game.daySteps)):
 
     # 5.2 calculate_tourcarのインスタンスに日毎のデータを更新する
     tourcar_calculator.Update_Date(day_data.pre_date, setting.converted_map)
+    supplycar_calculator.Update_Date(day_data.pre_date, setting.converted_map)
 
-    while tourcar_calculator.has_remaining_tourcar_steps():
+    while tourcar_calculator.has_remaining_tourcar_steps() or supplycar_calculator.has_remaining_supplycar_steps():
+
+        before_tourcar_remaining_steps = sum(car["remaining_steps"] for car in tourcar_calculator.current_tourcars)
+        before_supplycar_remaining_steps = sum(car["remaining_steps"] for car in supplycar_calculator.current_supplycars)
+
         # 5.3.1 経路探索を行う
-        result = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
-        tourcar_calculator.Update_current_tourcars(result)  # 割り当てられた巡回車の情報を更新する
+        result_tourcar = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
+        result_supplycar = supplycar_calculator.calculate_path_supplycar(result_tourcar["assignments"], pre_filter_count=5)
 
-        # 5.3.2 採択された経路をdaily_pathsへまとめる
-        for assignment in result["assignments"]:
+        # 5.3.2.1 採択された経路をdaily_pathsへまとめる
+        for assignment in result_tourcar["assignments"]:
             agent_id = assignment["agent_id"]
-            daily_paths[agent_id]["path"].extend(assignment["path"][1:])  # 最初の位置はすでにdaily_pathsに格納されているため、1から追加する
+
+            for path in assignment["path"][1:]:  # 最初の位置はすでにstart_positionに格納されているため、1から始める
+                daily_paths[agent_id]["path"].append({"status": "move", "position": path["position"]})
 
             if daily_paths[agent_id]["start_position"] is None:
                 daily_paths[agent_id]["start_position"] = assignment["path"][0]["position"]  # 最初の位置を格納する
 
-        # 5.3.3 余ったstepの処理(巡回車)
-        for assignment in result["assignments"]:
+        # 5.3.2.2 採択された経路をdaily_pathsへまとめる
+        for assignment in result_supplycar["assignments"]:
+            supplycar_id = assignment["supply_id"]
+
+            for path in assignment["path"][1:]:  # 最初の位置はすでにstart_positionに格納されているため、1から始める
+                daily_paths[supplycar_id]["path"].append({"status": "move", "position": path["position"]})
+
+            if daily_paths[supplycar_id]["start_position"] is None:
+                daily_paths[supplycar_id]["start_position"] = assignment["path"][0]["position"]  # 最初の位置を格納する
+
+        # 5.3.3.1 余ったstepの処理(巡回車)
+        for assignment in result_tourcar["assignments"]:
             agent_id = assignment["agent_id"]
             path = assignment["path"]
 
-            # 残りstepでは次のマスへ進めなかった場合
-            if path[-1]["step"] == 0:
+            # 残りstepでは次のマスへ進めない且つ残りstepがある場合
+            if path[-1]["step"] == 0 and tourcar_calculator.current_tourcars[agent_id]["remaining_steps"] > 0:
 
                 current_tourcar = next(
                     tourcar
@@ -175,14 +208,57 @@ for day in range(len(setting.pre_game.daySteps)):
                 )
 
                 # 余ったstepを待機時間として保存
-                daily_paths[agent_id]["waiting_time"] = (
+                daily_paths[agent_id]["waiting_time"] += (
                     current_tourcar["remaining_steps"]
                 )
 
                 # この巡回車の1日の行動を終了
                 current_tourcar["remaining_steps"] = 0
-    # 5.3.4 余ったstepの処理(補給車)
 
+        # 5.3.3.2 余ったstepの処理(補給車)
+        for assignment in result_supplycar["assignments"]:
+            supplycar_id = assignment["supply_id"]
+            path = assignment["path"]
+
+            # 残りstepでは次のマスへ進めない且つ残りstepがある場合
+            if path[-1]["step"] == 0 and supplycar_calculator.current_supplycars[supplycar_id]["remaining_steps"] > 0:
+
+                current_supplycar = next(
+                    supplycar
+                    for supplycar in supplycar_calculator.current_supplycars
+                    if supplycar["id"] == supplycar_id
+                )
+
+                # 余ったstepを待機時間として保存
+                daily_paths[supplycar_id]["waiting_time"] += (
+                    current_supplycar["remaining_steps"]
+                )
+
+                # この補給車の1日の行動を終了
+                current_supplycar["remaining_steps"] = 0
+
+        # 割り当てられたエージェントの情報を更新する
+        tourcar_calculator.Update_current_tourcars(result_tourcar)  
+        supplycar_calculator.Update_current_supplycars(result_supplycar)
+
+        # エージェント達に変化がない場合はループを抜ける
+        after_tourcar_remaining_steps = sum(car["remaining_steps"] for car in tourcar_calculator.current_tourcars)
+        after_supplycar_remaining_steps = sum(car["remaining_steps"] for car in supplycar_calculator.current_supplycars)
+        if (before_tourcar_remaining_steps == after_tourcar_remaining_steps and
+            before_supplycar_remaining_steps == after_supplycar_remaining_steps):
+
+            # 余ったstepを待機時間として保存する
+            for car in tourcar_calculator.current_tourcars:
+                if car["remaining_steps"] > 0:
+                    daily_paths[car["id"]]["waiting_time"] += car["remaining_steps"]
+                    car["remaining_steps"] = 0
+
+            #余ったstepを待機時間として保存する(移動の時間に費やすように後々修正する)
+            for car in supplycar_calculator.current_supplycars:
+                if car["remaining_steps"] > 0:
+                    daily_paths[car["id"]]["waiting_time"] += car["remaining_steps"]
+                    car["remaining_steps"] = 0
+            break
 
     # 5.4 結果をJSON形式で出力し、APIにPOSTする
     # 仮でresultをそのままPOSTするが、実際にはフォーマットに従ったものを返すようにする

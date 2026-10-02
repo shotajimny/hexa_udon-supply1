@@ -119,9 +119,8 @@ class AstarAlgorithm:
             if index == len(path) - 1:
                 break
 
-            # 移動先セルのコストを消費する。
-            next_position = path[index + 1]
-            step_cost, fuel_cost = self.compute_cost(next_position)
+            # 現在のセルのコストを消費する。
+            step_cost, fuel_cost = self.compute_cost(current)
 
             # 残燃料が足りず次のセルへ移動できない場合は、exhausted を True にする。
             if remaining_fuel < fuel_cost:
@@ -133,6 +132,12 @@ class AstarAlgorithm:
 
         return path_info
 
+    def search_refuel_position(self, path_info):
+        """経路上で燃料切れになる場合、どのセルで燃料切れになるかを返す。"""
+        for info in path_info:
+            if info["exhausted"]:
+                return info["position"]
+        return None
 
     def search_astar(self, current_agent, goal_position):
         # A*探索のメイン処理。
@@ -205,9 +210,9 @@ class AstarAlgorithm:
                     continue
 
                 # 移動先セルの CellData を直接参照してコストを計算する。
-                neighbor_cell = self._get_cell(neighbor)
-                step_cost = neighbor_cell.step_cost
-                fuel_cost = neighbor_cell.fuel_cost
+                current_cell = self._get_cell(current)
+                step_cost = current_cell.step_cost
+                fuel_cost = current_cell.fuel_cost
 
                 # 移動時間と燃料消費を合算し、補給車の負担も経路評価に加える。
                 tentative_g = current_cost + step_cost + fuel_cost * FUEL_WEIGHT
@@ -249,12 +254,13 @@ class AstarAlgorithm:
         # compare側が扱い易いようにキーを追加
         if not path_info:
           status = "unreachable"
-        elif path_info[-1]["exhausted"]:
+        elif self.search_refuel_position(path_info) is not None:
           status = "fuel_shortage"
         else:
           status = "reached_goal"
 
         return {
             "path": path_info,
-            "status": status
+            "status": status,
+            "refuel_position": self.search_refuel_position(path_info)
         }

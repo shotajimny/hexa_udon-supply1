@@ -125,7 +125,7 @@ class calculate_tourcar:
                         "steps": total_steps, #経過ステップ数を格納するキー
                         "status": path_result["status"], #経路のステータスを格納するキー
                         "refuel_position": (
-                            path_info[-1]["position"]
+                            path_result["refuel_position"]
                             if path_result["status"] == "fuel_shortage"
                             else None
                         ), #燃料不足になる位置を格納するキー
