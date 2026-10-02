@@ -28,7 +28,7 @@ class calculate_supplycar:
         self.current_supplycars = [
             {
                 "id": agent_id,
-                "position": list(self.converted_map.cells[agent.pos - 1].position),
+                "position": list(self.converted_map.cells[agent.pos].position),
                 "remaining_steps": self.day_total_steps,
             }
             for agent_id, agent in enumerate(self.pre_date.agents)

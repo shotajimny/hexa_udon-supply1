@@ -53,7 +53,7 @@ class AstarAlgorithm:
             for cell in cells
         }
         self.cells_by_id = {
-            index + 1: cell
+            index: cell
             for index, cell in enumerate(cells)
         }
 

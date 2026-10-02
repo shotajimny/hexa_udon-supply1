@@ -20,7 +20,7 @@ class calculate_tourcar:
         self.current_tourcars = [
             {
                 "id": agent_id,
-                "position": self.converted_map.cells[agent.pos - 1].position,
+                "position": self.converted_map.cells[agent.pos].position,
                 "remaining_fuel": agent.fuel,
                 "remaining_steps": self.pre_game.daySteps[pre_date.day]  # 現在の日の残りステップ数を取得
             }
@@ -65,7 +65,7 @@ class calculate_tourcar:
         ]
 
         spot_positions = [
-            self.converted_map.cells[spot.pos - 1].position
+            self.converted_map.cells[spot.pos].position
             for spot in self.converted_map.spots
         ]
 
