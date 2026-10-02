@@ -10,6 +10,9 @@ class calculate_tourcar:
         self.pre_game = pre_game
         self.current_tourcars = []
         self.selected_spots_today = set()
+        self.all_brands = {spot.brand for spot in pre_game.spots}
+        self.acquired_brands_match = set()
+        self.acquired_brands_today = set()
         self.astar = AstarAlgorithm()
 
     def Update_Date(self, pre_date, converted_map):
@@ -18,6 +21,12 @@ class calculate_tourcar:
         self.converted_map = converted_map
         self.astar.map_input(self.converted_map.cells)
         self.selected_spots_today.clear()
+        self.acquired_brands_today.clear()
+        self.inventory_today = {spot.pos: spot.stocks for spot in self.pre_game.spots}
+        self.visited_today = set()
+        for agent_id, agent in enumerate(pre_date.agents):
+            if agent.kind == 0:
+                self._collect_position(agent_id, agent.pos)
 
         self.current_tourcars = [
             {
@@ -28,6 +37,34 @@ class calculate_tourcar:
             }
             for agent_id, agent in enumerate(self.pre_date.agents) if agent.kind == 0
         ]
+
+    @property
+    def missing_brands_match(self):
+        return self.all_brands - self.acquired_brands_match
+
+    def _collect_position(self, agent_id, pos):
+        for spot in self.pre_game.spots:
+            if spot.pos != pos or (agent_id, pos) in self.visited_today:
+                continue
+            self.visited_today.add((agent_id, pos))
+            if self.inventory_today[pos] > 0:
+                self.inventory_today[pos] -= 1
+                self.acquired_brands_today.add(spot.brand)
+
+    def record_synchronized_arrivals(self, assignments):
+        # 目標への割り当てではなく、同期・燃料制限後に実際に残った経路を数える。
+        positions = {tuple(cell.position): pos
+                     for pos, cell in enumerate(self.converted_map.cells)}
+        arrivals = []
+        for assignment in assignments:
+            agent_id = assignment['agent_id']
+            car = next(c for c in self.current_tourcars if c['id'] == agent_id)
+            elapsed = self.pre_game.daySteps[self.pre_date.day] - car['remaining_steps']
+            for point in assignment['path']:
+                arrivals.append((elapsed + point['step'], agent_id,
+                                 positions[tuple(point['position'])]))
+        for _, agent_id, pos in sorted(arrivals):
+            self._collect_position(agent_id, pos)
 
     def Update_current_tourcars(self, assignment_result):
         # 割り当て結果に基づいて、各巡回車の位置と残り燃料を更新する
@@ -71,6 +108,7 @@ class calculate_tourcar:
         available_spot_numbers = [
             number for number in range(len(self.converted_map.spots))
             if number not in self.selected_spots_today
+            and self.converted_map.spots[number].brand not in self.acquired_brands_today
         ]
 
         spot_positions = [
@@ -83,6 +121,13 @@ class calculate_tourcar:
         for candidates in results:
             for candidate in candidates:
                 candidate["spot_number"] = available_spot_numbers[candidate["spot_number"]]
+        # 未取得ブランドは距離による候補数制限から落とさず、全てA*で比較する。
+        for candidates, agent in zip(results, bias_agents):
+            existing = {candidate['spot_number'] for candidate in candidates}
+            for number in available_spot_numbers:
+                if (number not in existing
+                        and self.converted_map.spots[number].brand in self.missing_brands_match):
+                    candidates.append({'tourcar_id': agent.id, 'spot_number': number})
         return results
 
     def compute_astar(self, result):
@@ -152,11 +197,17 @@ class calculate_tourcar:
         # すべての経路候補をコスト順にソートし、各スポット・各巡回車は1度だけ割り当てる
 
         # 1. コストでソート（低い順）
-        sorted_paths = sorted(all_paths, key=lambda x: x["combined_cost"])
+        sorted_paths = sorted(all_paths, key=lambda x: (
+            self.pre_game.spots[x['spot_number']].brand not in self.missing_brands_match,
+            x['status'] == 'fuel_shortage',
+            x['steps'] > next(c['remaining_steps'] for c in self.current_tourcars
+                              if c['id'] == x['agent_id']),
+            x['combined_cost']))
 
         # 2. 割り当て結果を管理
         assignments = []  # [(agent_id, spot_number, path_info, cost), ...]
         assigned_spots = set()  # すでに割り当てられたスポット
+        assigned_brands = set()
         assigned_agents = set()  # すでに割り当てられた巡回車
 
         # 3. コストが低い順に割り当てを確定（各スポット・各巡回車は1度だけ）
@@ -165,7 +216,10 @@ class calculate_tourcar:
             spot_number = candidate["spot_number"]
 
             # スポットと巡回車がまだ割り当てられていない場合のみ追加
-            if spot_number not in assigned_spots and agent_id not in assigned_agents:
+            brand = self.pre_game.spots[spot_number].brand
+            if (spot_number not in assigned_spots and agent_id not in assigned_agents
+                    and brand not in assigned_brands
+                    and brand not in self.acquired_brands_today):
                 assignments.append({
                     "agent_id": agent_id,
                     "spot_number": spot_number,
@@ -177,6 +231,7 @@ class calculate_tourcar:
                     "refuel_position": candidate["refuel_position"],
                     "cost": candidate["combined_cost"]
                 })
+                assigned_brands.add(brand)
                 assigned_spots.add(spot_number)
                 assigned_agents.add(agent_id)
 

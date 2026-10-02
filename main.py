@@ -1,4 +1,5 @@
 import time
+from gui.result_stats import replay_acquisitions
 from typing import List
 from api.api_client import get_setting, get_day_data, post_agent_types, post_agent_moves
 from api.models2 import PreGameData, PreDateData, CellConverter
@@ -118,7 +119,7 @@ class Result_post():
 
     def Post_Result(self, moves):
         # 結果データをAPIに送信する
-        post_agent_moves(moves)
+        return post_agent_moves(moves)
         
 
 # 実行
@@ -159,11 +160,17 @@ while True:
 tourcar_calculator = calculate_tourcar(setting.pre_game)
 supplycar_calculator = calculate_supplycar(setting.pre_game)
 
+match_events = []
+
 # 4.試合終了まで日数分ループする
 for day in range(len(setting.pre_game.daySteps)):
     # ゲーム開始後、日毎のデータを取得し、A*探索用セルデータの更新を行う
     day_data = DayData()
     day_data.set_pre_date()
+    match_events.append(dict(day_data.set_data, type='day'))
+    confirmed = replay_acquisitions(setting.set_data, {'events': match_events})
+    if confirmed:
+        tourcar_calculator.acquired_brands_match = set(confirmed['brands'])
     day_data.Update_Convert_map(setting.converted_map)
     daily_paths = [
         {
@@ -207,6 +214,8 @@ for day in range(len(setting.pre_game.daySteps)):
             )
         )
 
+        tourcar_calculator.record_synchronized_arrivals(result_tourcar['assignments'])
+
         # 同期済みの移動と途中待機を、そのまま回答に反映する。
         for assignment in result_tourcar["assignments"]:
             daily_paths[assignment["agent_id"]]["path"].extend(assignment["actions"])
@@ -240,7 +249,10 @@ for day in range(len(setting.pre_game.daySteps)):
     # 仮でresultをそのままPOSTするが、実際にはフォーマットに従ったものを返すようにする
     result_post = Result_post()
     moves = result_post.Json_output(daily_paths)
-    result_post.Post_Result(moves)
+    response = result_post.Post_Result(moves)
+    if response.status_code == 200:
+        match_events.append({'type': 'post', 'endpoint': '/', 'day': day,
+                             'payload': moves, 'body': response.text})
 
 
     # エージェントごとのパスをjson形式で出力し、APIにPOSTする
@@ -248,3 +260,9 @@ for day in range(len(setting.pre_game.daySteps)):
     # 当日の回答受付終了時間まで待機
     while time.time() < day_data.pre_date.endsAt:
         time.sleep(0.1)
+final_stats = replay_acquisitions(setting.set_data, {'events': match_events, 'completed': True})
+if final_stats and final_stats['complete']:
+    missing = final_stats['missing_brands']
+    print('全種類制覇:', not missing, '未取得ブランド:', missing)
+else:
+    print('全種類制覇: 判定できません（未集計の日があります）')

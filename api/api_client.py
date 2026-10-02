@@ -39,7 +39,7 @@ def post_agent_moves(data):
     # APIにエージェントの移動データを送信する関数を定義する
     url = "http://127.0.0.1:8080/"
 
-    requests.post(
+    return requests.post(
         url,
         params={"token": "token-p0"},
         json=data
