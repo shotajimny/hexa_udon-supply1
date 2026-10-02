@@ -185,7 +185,7 @@ for day in range(len(setting.pre_game.daySteps)):
 
         # 5.3.1 経路探索を行う
         result_tourcar = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
-        result_supplycar = supplycar_calculator.calculate_path_supplycar(result_tourcar["assignments"], pre_filter_count=5)
+        result_supplycar = supplycar_calculator.calculate_path_supplycar(result_tourcar["assignments"], choices_per_supply=5)
 
         # 5.3.2.1 採択された経路をdaily_pathsへまとめる
         for assignment in result_tourcar["assignments"]:
