@@ -64,12 +64,22 @@ class calculate_tourcar:
             if tourcar["remaining_steps"] > 0  # 残りステップがある巡回車のみを対象とする
         ]
 
-        spot_positions = [
-            self.converted_map.cells[spot.pos].position
-            for spot in self.converted_map.spots
+        available_spot_numbers = [
+            number for number in range(len(self.converted_map.spots))
+            if number not in self.selected_spots_today
         ]
 
-        return select_spots(bias_agents, spot_positions, pre_filter_count)
+        spot_positions = [
+            self.converted_map.cells[self.converted_map.spots[number].pos].position
+            for number in available_spot_numbers
+        ]
+
+        results = select_spots(bias_agents, spot_positions, pre_filter_count)
+        # 候補の絞り込み後も、元のスポット番号を使う。
+        for candidates in results:
+            for candidate in candidates:
+                candidate["spot_number"] = available_spot_numbers[candidate["spot_number"]]
+        return results
 
     def compute_astar(self, result):
         # 各 tourcar - spot ペアについて A* 実行し、すべての経路とコスト情報を保持する
@@ -225,4 +235,8 @@ class calculate_tourcar:
             # 制限された経路で更新
             assignment["path"] = limited_path
 
+        self.selected_spots_today.update(
+            assignment["spot_number"]
+            for assignment in assignment_result["assignments"]
+        )
         return assignment_result
