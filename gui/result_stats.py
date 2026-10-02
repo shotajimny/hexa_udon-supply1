@@ -32,8 +32,8 @@ def summarize_acquisitions(records, day_count):
 def replay_acquisitions(source, result):
     """募集要項9〜12ページの到着・個別在庫ルールで採用回答を再生する。
 
-    公式スコアAPIではなく、採用回答による計算。日開始時に既にスポットに
-    いるだけの車は『到着』に含めず、その日に移動して到着した時だけ獲得する。
+    公式スコアAPIではなく、採用回答による計算。日開始時にスポットに
+    いる巡回車も、待機・移動にかかわらず在庫の範囲内で獲得する。
     """
     snapshots, accepted = {}, {}
     current_day = None
@@ -66,11 +66,12 @@ def replay_acquisitions(source, result):
             continue
         payload = accepted.get(day)
         if payload is None:
-            # 有効回答なしなら全車待機。新しい到着はない。
-            known.append(day)
-            continue
+            # 有効回答なしなら全車待機。開始地点での獲得も再生する。
+            payload = [[-budget] for _ in snapshot['agents']]
         traffic = {t['pos']: t['status'] for t in snapshot.get('traffics', [])}
-        if day > 0 and 'traffics' not in snapshot:
+        if (day > 0 and 'traffics' not in snapshot
+                and any(action >= 0 for actions in payload for action in actions
+                        if type(action) is int)):
             notes.append(f'{day + 1}日目の渋滞情報がないため未集計')
             continue
         arrivals = []
@@ -78,6 +79,8 @@ def replay_acquisitions(source, result):
         valid = len(payload) == len(snapshot['agents'])
         for agent_id, agent in enumerate(snapshot['agents']):
             pos, step = agent['pos'], 0
+            if agent['kind'] == 0 and pos in spots:
+                arrivals.append((0, agent_id, pos))
             for action in payload[agent_id] if valid else []:
                 if type(action) is not int:
                     valid = False; break
@@ -130,5 +133,5 @@ def replay_acquisitions(source, result):
             day.update(types=None, total_count=None, brands=None)
     stats.update(method='replay', known_days=known,
                  complete=len(known) == len(source['daySteps']), notes=notes,
-                 start_spot_policy='arrival_only')
+                 start_spot_policy='include_start')
     return stats

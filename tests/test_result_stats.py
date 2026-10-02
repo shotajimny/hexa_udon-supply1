@@ -65,10 +65,31 @@ class ReplayResultTests(unittest.TestCase):
         self.assertFalse(r['complete'])
         self.assertIsNone(r['days'][1]['types'])
 
-    def test_waiting_on_a_spot_is_not_an_arrival(self):
+    def test_starting_on_a_spot_collects_with_stock_limit(self):
         r = replay_acquisitions(self.source(), {'completed': True, 'events': [
             self.day(0, positions=(1, 1)), self.answer([[-4], [-4]])]})
+        self.assertEqual(r['total_count'], 1)
+
+    def test_starting_car_leaving_and_returning_collects_once(self):
+        s = self.source(); s['spots'][0]['stocks'] = 2
+        r = replay_acquisitions(s, {'completed': True, 'events': [
+            self.day(0, positions=(1, 0), kinds=(0, 1)),
+            self.answer([[5, 2], [-4]])]})
+        self.assertEqual(r['total_count'], 1)
+
+    def test_starting_supply_car_does_not_collect(self):
+        r = replay_acquisitions(self.source(), {'completed': True, 'events': [
+            self.day(0, positions=(1, 1), kinds=(1, 1)),
+            self.answer([[-4], [-4]])]})
         self.assertEqual(r['total_count'], 0)
+
+    def test_no_valid_answer_still_collects_at_start_each_day(self):
+        r = replay_acquisitions(self.source(), {'completed': True, 'events': [
+            self.day(0, positions=(1, 1)), self.answer([[99], [99]], -1),
+            self.day(1, positions=(1, 1))]})
+        self.assertTrue(r['complete'])
+        self.assertEqual([d['total_count'] for d in r['days']], [1, 1])
+        self.assertEqual(r['total_count'], 2)
 
     def test_repeat_arrivals_by_same_car_are_counted_once(self):
         s = self.source();s['daySteps'] = [8];s['spots'][0]['stocks'] = 2
