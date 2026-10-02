@@ -90,9 +90,9 @@ class Result_post():
                 if action["status"] == "move":
                     next_position = action["position"]
                     # 移動方向をDIRECTIONSのインデックスに変換してmovesに追加する
-                    direction = (
+                    direction = [
                         next_position[i] - current_position[i] for i in range(3)
-                    )
+                    ]
 
                     if direction == DIRECTIONS[0]:
                         moves[agent["agent_id"]].append(0)
@@ -168,7 +168,7 @@ for day in range(len(setting.pre_game.daySteps)):
         {
             "agent_id": agent_id,
             "agent_type": agent.kind,
-            "start_position": agent.pos,  # 最初の位置を格納する,
+            "start_position": list(setting.converted_map.cells[agent.pos].position),  # 最初の位置を格納する,
             "path": [],
             "waiting_time": 0
         } for agent_id, agent in enumerate(day_data.pre_date.agents)

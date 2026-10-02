@@ -14,7 +14,7 @@ class CellConverter:
 
         # 道路セルの情報を更新
         for road_cell in data.traffics:
-            index = road_cell.pos - 1
+            index = road_cell.pos
 
             # エラーチェック: 受け取ったデータのposがセルの範囲外でないか確認する
             if not 0 <= index < len(self.cells):
@@ -100,7 +100,7 @@ class CellConverter:
 
         #スポット情報を対応するセルに設定する
         for spot in self.spots:
-            index = spot.pos - 1
+            index = spot.pos 
             if 0 <= index < len(converted_cells):
                 converted_cells[index].spot = spot
 
