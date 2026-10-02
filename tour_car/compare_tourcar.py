@@ -9,6 +9,7 @@ class calculate_tourcar:
         # インスタンスを受け取って初期化する
         self.pre_game = pre_game
         self.current_tourcars = []
+        self.selected_spots_today = set()
         self.astar = AstarAlgorithm()
 
     def Update_Date(self, pre_date, converted_map):
@@ -16,6 +17,7 @@ class calculate_tourcar:
         self.pre_date = pre_date
         self.converted_map = converted_map
         self.astar.map_input(self.converted_map.cells)
+        self.selected_spots_today.clear()
 
         self.current_tourcars = [
             {
