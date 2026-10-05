@@ -14,6 +14,7 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 from result_stats import summarize_acquisitions, replay_acquisitions
+from response_timing import summarize_response_times
 
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = Path(__file__).resolve().parent
@@ -39,6 +40,7 @@ def worker(port, output, project=REPO, token="token-p0"):
     original = requests.sessions.Session.request
     original_sync = PathSynchronizer.synchronize_paths if PathSynchronizer else None
     day = -1
+    day_received = {}
 
     def sync(self, *args, **kwargs):
         tours, supplies = original_sync(self, *args, **kwargs)
@@ -54,15 +56,23 @@ def worker(port, output, project=REPO, token="token-p0"):
             params = dict(kwargs.get('params') or {})
             params['token'] = token
             kwargs['params'] = params
+        sent_at = time.perf_counter()
         response = original(session, method, routed, **kwargs)
+        received_at = time.perf_counter()
         endpoint = urlparse(url).path
         if method.upper() == 'POST':
             data['events'].append({'type': 'post', 'day': day, 'endpoint': endpoint,
                                    'http': response.status_code, 'body': response.text,
-                                   'payload': kwargs.get('json')})
+                                   'payload': kwargs.get('json'),
+                                   'request_ms': (received_at - sent_at) * 1000,
+                                   'compute_ms': ((sent_at - day_received[day]) * 1000
+                                                  if endpoint == '/' and day in day_received else None),
+                                   'response_ms': ((received_at - day_received[day]) * 1000
+                                                   if endpoint == '/' and day in day_received else None)})
         elif endpoint == '/' and response.status_code == 200:
             snapshot = response.json()
             day = snapshot['day']
+            day_received.setdefault(day, received_at)
             data['events'].append({'type': 'day', **snapshot})
         save(output, data)
         return response
@@ -144,7 +154,7 @@ class Store:
         selected = None
         for participant in participants:
             detail = self.get_team(name, participant['id'])
-            teams.append({**participant, 'stats': detail['stats'],
+            teams.append({**participant, 'stats': detail['stats'], 'timing': detail['timing'],
                           'running': detail['result'].get('running', False),
                           'completed': detail['result'].get('completed', False),
                           'error': detail['result'].get('error')})
@@ -184,7 +194,8 @@ class Store:
             stats['complete'] = True
         else:
             stats = replay_acquisitions(source, data)
-        return {'source': source, 'result': data, 'stats': stats}
+        return {'source': source, 'result': data, 'stats': stats,
+                'timing': summarize_response_times(data['events'], len(source['daySteps']))}
 
     def import_result(self, name, records, team=0):
         self.get(name, team)

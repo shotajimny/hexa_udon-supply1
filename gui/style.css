@@ -7,3 +7,5 @@
 @media(max-width:650px){.result-totals{grid-template-columns:1fr}.result-totals strong{font-size:22px}}
 
 .projects-panel{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:18px 20px;margin-bottom:20px}.projects-panel label{font-weight:600}.projects-panel textarea{display:block;box-sizing:border-box;width:100%;margin-top:10px;background:#0c1922;color:var(--text);border:1px solid #39515f;border-radius:8px;padding:12px;font:13px monospace;resize:vertical}.comparison-wrap{overflow:auto;margin-top:16px}#team-results{width:100%;border-collapse:collapse;font-size:12px;text-align:left}#team-results th,#team-results td{padding:11px;border-bottom:1px solid var(--border)}#team-results th{color:var(--muted);white-space:nowrap}#team-results tbody tr{cursor:pointer}#team-results tr.active{background:#1c3c38}
+
+.timing-table{margin:0 20px}.timing-table table{width:100%;border-collapse:collapse;text-align:left;font-size:12px}.timing-table th,.timing-table td{padding:10px;border-bottom:1px solid var(--border);white-space:nowrap}.timing-table th{color:var(--muted)}.timing-note{padding:8px 20px 16px}
