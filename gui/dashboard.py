@@ -12,7 +12,7 @@ import threading
 import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from result_stats import summarize_acquisitions, replay_acquisitions
 
 REPO = Path(__file__).resolve().parents[1]
@@ -26,14 +26,18 @@ def save(path, value):
     temp.replace(path)
 
 
-def worker(port, output):
+def worker(port, output, project=REPO, token="token-p0"):
+    project = Path(project).resolve()
     import requests
-    sys.path.insert(0, str(REPO))
-    os.chdir(REPO)
-    from PathSynchronizer import PathSynchronizer
+    sys.path.insert(0, str(project))
+    os.chdir(project)
+    try:
+        from PathSynchronizer import PathSynchronizer
+    except ImportError:
+        PathSynchronizer = None
     data = {'events': [], 'completed': False, 'running': True}
     original = requests.sessions.Session.request
-    original_sync = PathSynchronizer.synchronize_paths
+    original_sync = PathSynchronizer.synchronize_paths if PathSynchronizer else None
     day = -1
 
     def sync(self, *args, **kwargs):
@@ -46,6 +50,10 @@ def worker(port, output):
     def observe(session, method, url, **kwargs):
         nonlocal day
         routed = url.replace('http://127.0.0.1:8080', f'http://127.0.0.1:{port}')
+        if url.startswith('http://127.0.0.1:8080'):
+            params = dict(kwargs.get('params') or {})
+            params['token'] = token
+            kwargs['params'] = params
         response = original(session, method, routed, **kwargs)
         endpoint = urlparse(url).path
         if method.upper() == 'POST':
@@ -60,9 +68,10 @@ def worker(port, output):
         return response
 
     requests.sessions.Session.request = observe
-    PathSynchronizer.synchronize_paths = sync
+    if PathSynchronizer:
+        PathSynchronizer.synchronize_paths = sync
     try:
-        runpy.run_path(str(REPO / 'main.py'), run_name='__main__')
+        runpy.run_path(str(project / 'main.py'), run_name='__main__')
         data['completed'] = True
     except BaseException:
         data['error'] = traceback.format_exc()
@@ -80,6 +89,7 @@ class Store:
         self.lock = threading.Lock()
         self.jobs = {}
         self.stopping = False
+        self.projects = self.validate_projects(getattr(args, "projects", None) or [str(REPO)])
         self.maps = {}
         for path in args.maps:
             path = Path(path).resolve()
@@ -105,23 +115,55 @@ class Store:
                                **{k: p[k] for k in ('spots', 'fuelLimits', 'daySteps', 'daySeconds', 'busyThreshold', 'jammedThreshold')},
                                'agents': p['agentStarts'], 'players': len(json.loads(path.read_text())['teams'])}
 
+    @staticmethod
+    def validate_projects(projects):
+        if not isinstance(projects, list) or not projects or any(not isinstance(p, str) for p in projects):
+            raise ValueError('参加プロジェクトを1件以上指定してください')
+        paths = [Path(p).expanduser().resolve() for p in projects]
+        for path in paths:
+            if not (path / 'main.py').is_file():
+                raise ValueError(f'main.pyがありません: {path}')
+        return [str(path) for path in paths]
+
+    def team_prefix(self, name, team):
+        return name if team == 0 else f'{name}-team-{team}'
+
     def listing(self):
         return {'maps': [{'id': name, 'width': s['map']['width'], 'height': s['map']['height'],
                           'agents': len(s['agents']), 'days': len(s['daySteps'])}
                          for name, s in sorted(self.maps.items())],
-                'can_run': bool(self.args.server), 'running': list(self.jobs)}
+                'projects': self.projects, 'can_run': bool(self.args.server), 'running': list(self.jobs)}
 
-    def get(self, name):
+    def get(self, name, team=0):
+        manifest = self.root / (name + '-teams.json')
+        participants = json.loads(manifest.read_text()) if manifest.exists() else [
+            {'id': 0, 'name': REPO.name, 'project': str(REPO)}]
+        if not 0 <= team < len(participants):
+            raise ValueError('未知のチームです')
+        teams = []
+        selected = None
+        for participant in participants:
+            detail = self.get_team(name, participant['id'])
+            teams.append({**participant, 'stats': detail['stats'],
+                          'running': detail['result'].get('running', False),
+                          'completed': detail['result'].get('completed', False),
+                          'error': detail['result'].get('error')})
+            if participant['id'] == team:
+                selected = detail
+        return {**selected, 'teams': teams, 'team': team}
+
+    def get_team(self, name, team=0):
         if name not in self.maps:
             raise ValueError('未知のマップです')
         source = self.maps[name]
-        path = self.root / (name + '-result.json')
+        prefix = self.team_prefix(name, team)
+        path = self.root / (prefix + '-result.json')
         data = json.loads(path.read_text()) if path.exists() else {'events': [], 'completed': False}
         data['running'] = name in self.jobs
         # Earlier observations omitted traffic information: read matching server snapshots.
         if any(e['type'] == 'day' and 'traffics' not in e for e in data['events']):
             import ast
-            log = self.root / (name + '-client.log')
+            log = self.root / (prefix + '-client.log')
             if log.exists():
                 snapshots = {}
                 for line in log.read_text(errors='replace').splitlines():
@@ -133,7 +175,7 @@ class Store:
                 for e in data['events']:
                     if e['type'] == 'day' and e['day'] in snapshots:
                         e.update(snapshots[e['day']])
-        acquisitions = self.root / (name + '-acquisitions.json')
+        acquisitions = self.root / (prefix + '-acquisitions.json')
         stats = None
         if acquisitions.exists():
             stats = summarize_acquisitions(json.loads(acquisitions.read_text()), len(source['daySteps']),
@@ -144,17 +186,21 @@ class Store:
             stats = replay_acquisitions(source, data)
         return {'source': source, 'result': data, 'stats': stats}
 
-    def import_result(self, name, records):
+    def import_result(self, name, records, team=0):
+        self.get(name, team)
         if name not in self.maps:
             raise ValueError('未知のマップです')
         if name in self.jobs:
             raise ValueError('試合が終了してから獲得履歴を読み込んでください')
         stats = summarize_acquisitions(records, len(self.maps[name]['daySteps']),
                                        (spot['brand'] for spot in self.maps[name]['spots']))
-        save(self.root / (name + '-acquisitions.json'), records)
+        save(self.root / (self.team_prefix(name, team) + '-acquisitions.json'), records)
         return stats
 
-    def start(self, name, fast):
+    def start(self, name, fast, projects=None):
+        projects = self.validate_projects(self.projects if projects is None else projects)
+        if name in self.maps and len(projects) > self.maps[name]["players"]:
+            raise ValueError("参加プロジェクト数がマップのチーム数を超えています")
         with self.lock:
             if self.stopping:
                 raise ValueError('終了処理中です')
@@ -163,25 +209,27 @@ class Store:
             if name not in self.maps or not self.args.server:
                 raise ValueError('マップまたはゲームサーバーが指定されていません')
             self.jobs[name] = True
-        threading.Thread(target=self.run, args=(name, fast), daemon=True).start()
+        threading.Thread(target=self.run, args=(name, fast, projects), daemon=True).start()
 
-    def run(self, name, fast):
-        processes = []
+    def run(self, name, fast, projects=None):
+        processes, logfiles = [], []
         resultpath = self.root / (name + '-result.json')
-        # 再実行しても以前の観測結果を失わない。
-        previous = [self.root / (name + suffix) for suffix in
-                    ('-result.json', '-config.json', '-client.log', '-server.log', '-acquisitions.json')]
-        if any(p.exists() for p in previous):
+        previous = list(self.root.glob(name + '-*.json')) + list(self.root.glob(name + '-*.log'))
+        if previous:
             archive = self.root / 'archives' / (name + '-' + str(time.time_ns()))
             archive.mkdir(parents=True)
             for path in previous:
-                if path.exists():
-                    shutil.copy2(path, archive / path.name)
-            acquisitions = self.root / (name + '-acquisitions.json')
-            acquisitions.unlink(missing_ok=True)
+                shutil.copy2(path, archive / path.name)
+                path.unlink()
         save(resultpath, {'events': [], 'running': True, 'completed': False})
         try:
             s = self.maps[name]
+            projects = self.validate_projects(self.projects if projects is None else projects)
+            if len(projects) > s['players']:
+                raise ValueError('参加プロジェクト数がマップのチーム数を超えています')
+            participants = [{'id': i, 'name': Path(project).name, 'project': project}
+                            for i, project in enumerate(projects)]
+            save(self.root / (name + '-teams.json'), participants)
             p = dict(s['map'])
             p.update({k: s[k] for k in ('spots', 'fuelLimits', 'daySteps', 'busyThreshold', 'jammedThreshold')})
             p['daySeconds'] = [3] * len(s['daySteps']) if fast else s['daySeconds']
@@ -209,19 +257,33 @@ class Store:
                     time.sleep(.1)
                 else:
                     raise RuntimeError('ゲームサーバーの起動がタイムアウトしました')
-                client = subprocess.Popen([sys.executable, '-u', str(ASSETS / 'dashboard.py'),
-                                           '--worker', str(port), str(resultpath)],
-                                          cwd=REPO, stdout=cl, stderr=cl,
-                                          env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
-                processes.append(client)
+                clients = []
+                for participant in participants:
+                    team = participant['id']
+                    prefix = self.team_prefix(name, team)
+                    output = self.root / (prefix + '-result.json')
+                    save(output, {'events': [], 'running': True, 'completed': False})
+                    log = cl if team == 0 else (self.root / (prefix + '-client.log')).open('w')
+                    if team != 0:
+                        logfiles.append(log)
+                    python = Path(participant['project']) / 'venv' / 'bin' / 'python'
+                    interpreter = str(python) if python.is_file() else sys.executable
+                    client = subprocess.Popen([interpreter, '-u', str(ASSETS / 'dashboard.py'),
+                                               '--worker', str(port), str(output),
+                                               '--project-root', participant['project'],
+                                               '--team-token', f'token-p{team}'],
+                                              cwd=participant['project'], stdout=log, stderr=log,
+                                              env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
+                    clients.append(client)
+                    processes.append(client)
                 limit = sum(p['daySeconds']) + 90
                 started = time.monotonic()
-                while client.poll() is None:
+                while any(client.poll() is None for client in clients):
                     if self.stopping or time.monotonic() - started > limit:
                         raise RuntimeError('試合を中断しました、または実行がタイムアウトしました')
                     time.sleep(.2)
-                if client.returncode != 0:
-                    raise RuntimeError('クライアントが異常終了しました。詳細はイベントとclient.logを確認してください')
+                if any(client.returncode != 0 for client in clients):
+                    raise RuntimeError('参加プロジェクトが異常終了しました。各チームのclient.logを確認してください')
         except Exception as exc:
             data = json.loads(resultpath.read_text())
             data['error'] = data.get('error') or str(exc)
@@ -235,6 +297,8 @@ class Store:
                     proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     proc.kill(); proc.wait()
+            for log in logfiles:
+                log.close()
             with self.lock:
                 self.jobs.pop(name, None)
 
@@ -255,7 +319,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/maps':
                 self.send_json(self.server.store.listing())
             elif path.startswith('/api/run/'):
-                self.send_json(self.server.store.get(path.removeprefix('/api/run/')))
+                self.send_json(self.server.store.get(path.removeprefix('/api/run/'),
+                                                     int(parse_qs(urlparse(self.path).query).get('team', ['0'])[0])))
             elif path in ('/', '/index.html', '/app.js', '/style.css'):
                 asset = ASSETS / ('index.html' if path == '/' else path[1:])
                 body = asset.read_bytes()
@@ -280,10 +345,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('不正なリクエストです')
             body = json.loads(self.rfile.read(length))
             if self.path == '/api/result':
-                stats = self.server.store.import_result(body['map'], body['records'])
+                stats = self.server.store.import_result(body['map'], body['records'], int(body.get('team', 0)))
                 self.send_json({'stats': stats})
                 return
-            self.server.store.start(body['map'], bool(body.get('fast', False)))
+            self.server.store.start(body['map'], bool(body.get('fast', False)), body.get('projects'))
             self.send_json({'started': True}, 202)
         except (ValueError, KeyError) as exc:
             self.send_json({'error': str(exc)}, 400)
@@ -296,10 +361,13 @@ def main():
     parser.add_argument('--server', help='OSに対応するprocon-serverのパス（試合実行に必要）')
     parser.add_argument('--maps', nargs='*', default=[], help='/setting形式またはサーバー設定JSONのパス')
     parser.add_argument('--runs', default=str(REPO / 'gui-runs'), help='試合記録ディレクトリ')
+    parser.add_argument('--projects', nargs='+', help='参加するプロジェクトのディレクトリ（main.pyを実行）')
+    parser.add_argument('--project-root', default=str(REPO), help=argparse.SUPPRESS)
+    parser.add_argument('--team-token', default='token-p0', help=argparse.SUPPRESS)
     parser.add_argument('--worker', nargs=2, metavar=('PORT', 'OUTPUT'), help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.worker:
-        worker(int(args.worker[0]), args.worker[1]); return
+        worker(int(args.worker[0]), args.worker[1], args.project_root, args.team_token); return
     store = Store(args)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.store = store
