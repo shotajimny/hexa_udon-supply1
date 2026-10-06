@@ -193,6 +193,11 @@ for day in range(len(setting.pre_game.daySteps)):
 
         # 5.3.1 経路探索を行う
         result_tourcar = tourcar_calculator.calculate_path_tourcar(pre_filter_count=5)
+        supplycar_calculator.set_tour_context(
+            tourcar_calculator.current_tourcars,
+            tourcar_calculator.acquired_brands_today,
+            tourcar_calculator.acquired_brands_match,
+        )
         result_supplycar = supplycar_calculator.calculate_path_supplycar(
             result_tourcar["assignments"],
             tour_elapsed_steps={

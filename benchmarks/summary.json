@@ -1,0 +1,749 @@
+[
+  {
+    "map": "sample_16",
+    "team": 0,
+    "error": null,
+    "completed": true,
+    "types": 12,
+    "count": 35,
+    "cumulative": 35,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 111.47799796890467,
+          "request_ms": 1.4555910020135343,
+          "response_ms": 112.93358897091821
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 52.746656991075724,
+          "request_ms": 1.8196780001744628,
+          "response_ms": 54.56633499125019
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 44.07416598405689,
+          "request_ms": 3.3138470025733113,
+          "response_ms": 47.3880129866302
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 78.3441339735873,
+          "request_ms": 5.306476028636098,
+          "response_ms": 83.6506100022234
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 79.27614101208746,
+          "request_ms": 1.2079980224370956,
+          "response_ms": 80.48413903452456
+        }
+      ],
+      "measured_days": 5,
+      "total_ms": 379.02268598554656,
+      "average_ms": 75.80453719710931,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 0,
+      "stopped_by_car": {},
+      "observed_days": 5,
+      "planned_refuels": 31,
+      "refuels_by_car": {
+        "1": 18,
+        "2": 13
+      },
+      "max_same_target_streak": 12
+    },
+    "accepted": 5,
+    "answers": 5
+  },
+  {
+    "map": "sample_16",
+    "team": 1,
+    "error": null,
+    "completed": true,
+    "types": 12,
+    "count": 41,
+    "cumulative": 40,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 492.9549320368096,
+          "request_ms": 7.225223002023995,
+          "response_ms": 500.1801550388336
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 59.81178896035999,
+          "request_ms": 11.023479048162699,
+          "response_ms": 70.83526800852269
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 100.66057101357728,
+          "request_ms": 1.4753899886272848,
+          "response_ms": 102.13596100220457
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 85.55872703436762,
+          "request_ms": 5.837404984049499,
+          "response_ms": 91.39613201841712
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 158.10250502545387,
+          "request_ms": 33.41536701191217,
+          "response_ms": 191.51787203736603
+        }
+      ],
+      "measured_days": 5,
+      "total_ms": 956.065388105344,
+      "average_ms": 191.2130776210688,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 0,
+      "stopped_by_car": {},
+      "observed_days": 5,
+      "planned_refuels": 13,
+      "refuels_by_car": {
+        "2": 7,
+        "1": 6
+      },
+      "max_same_target_streak": 7
+    },
+    "accepted": 5,
+    "answers": 5
+  },
+  {
+    "map": "sample_24",
+    "team": 0,
+    "error": null,
+    "completed": true,
+    "types": 18,
+    "count": 66,
+    "cumulative": 65,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 977.3255710024387,
+          "request_ms": 2.2249179892241955,
+          "response_ms": 979.5504889916629
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 323.42014100868255,
+          "request_ms": 1.6053160070441663,
+          "response_ms": 325.0254570157267
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 310.8048819703981,
+          "request_ms": 1.802323036827147,
+          "response_ms": 312.6072050072253
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 237.02246200991794,
+          "request_ms": 1.4537980314344168,
+          "response_ms": 238.47626004135236
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 120.61371898744255,
+          "request_ms": 1.3612890033982694,
+          "response_ms": 121.97500799084082
+        }
+      ],
+      "measured_days": 5,
+      "total_ms": 1977.634419046808,
+      "average_ms": 395.5268838093616,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 1,
+      "stopped_by_car": {
+        "0": 1
+      },
+      "observed_days": 5,
+      "planned_refuels": 40,
+      "refuels_by_car": {
+        "3": 24,
+        "4": 16
+      },
+      "max_same_target_streak": 12
+    },
+    "accepted": 5,
+    "answers": 5
+  },
+  {
+    "map": "sample_24",
+    "team": 1,
+    "error": null,
+    "completed": true,
+    "types": 18,
+    "count": 79,
+    "cumulative": 76,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 1080.786254024133,
+          "request_ms": 1.6286610043607652,
+          "response_ms": 1082.4149150284939
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 326.28174201818183,
+          "request_ms": 1.5219100168906152,
+          "response_ms": 327.80365203507245
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 275.8392980322242,
+          "request_ms": 1.9589979783631861,
+          "response_ms": 277.79829601058736
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 359.8565509892069,
+          "request_ms": 1.601208990905434,
+          "response_ms": 361.4577599801123
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 322.980348020792,
+          "request_ms": 1.5699619543738663,
+          "response_ms": 324.5503099751659
+        }
+      ],
+      "measured_days": 5,
+      "total_ms": 2374.024933029432,
+      "average_ms": 474.80498660588637,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 0,
+      "stopped_by_car": {},
+      "observed_days": 5,
+      "planned_refuels": 15,
+      "refuels_by_car": {
+        "3": 6,
+        "4": 4,
+        "0": 5
+      },
+      "max_same_target_streak": 2
+    },
+    "accepted": 5,
+    "answers": 5
+  },
+  {
+    "map": "sample_32",
+    "team": 0,
+    "error": null,
+    "completed": true,
+    "types": 24,
+    "count": 92,
+    "cumulative": 89,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 1280.214918020647,
+          "request_ms": 1.8669000128284097,
+          "response_ms": 1282.0818180334754
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 420.6262330408208,
+          "request_ms": 1.7899239901453257,
+          "response_ms": 422.41615703096613
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 479.7704750089906,
+          "request_ms": 1.5137579757720232,
+          "response_ms": 481.28423298476264
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 482.32011700747535,
+          "request_ms": 3.243172017391771,
+          "response_ms": 485.5632890248671
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 520.3678520047106,
+          "request_ms": 1.7774750012904406,
+          "response_ms": 522.145327006001
+        }
+      ],
+      "measured_days": 5,
+      "total_ms": 3193.4908240800723,
+      "average_ms": 638.6981648160145,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 3,
+      "stopped_by_car": {
+        "0": 2,
+        "1": 1
+      },
+      "observed_days": 5,
+      "planned_refuels": 67,
+      "refuels_by_car": {
+        "1": 8,
+        "2": 25,
+        "6": 26,
+        "0": 8
+      },
+      "max_same_target_streak": 24
+    },
+    "accepted": 5,
+    "answers": 5
+  },
+  {
+    "map": "sample_32",
+    "team": 1,
+    "error": null,
+    "completed": true,
+    "types": 24,
+    "count": 100,
+    "cumulative": 95,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 1497.3091849824414,
+          "request_ms": 1.8065880285575986,
+          "response_ms": 1499.115773010999
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 1055.2760540158488,
+          "request_ms": 1.532056019641459,
+          "response_ms": 1056.8081100354902
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 949.9120820546523,
+          "request_ms": 1.7260679742321372,
+          "response_ms": 951.6381500288844
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 974.7925589908846,
+          "request_ms": 1.608349964953959,
+          "response_ms": 976.4009089558385
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 1023.9072300028056,
+          "request_ms": 1.5098419971764088,
+          "response_ms": 1025.417071999982
+        }
+      ],
+      "measured_days": 5,
+      "total_ms": 5509.380014031194,
+      "average_ms": 1101.8760028062388,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 0,
+      "stopped_by_car": {},
+      "observed_days": 5,
+      "planned_refuels": 16,
+      "refuels_by_car": {
+        "1": 4,
+        "0": 4,
+        "6": 4,
+        "2": 4
+      },
+      "max_same_target_streak": 2
+    },
+    "accepted": 5,
+    "answers": 5
+  },
+  {
+    "map": "long32",
+    "team": 0,
+    "error": null,
+    "completed": true,
+    "types": 24,
+    "count": 348,
+    "cumulative": 340,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 1314.815550984349,
+          "request_ms": 2.106430009007454,
+          "response_ms": 1316.9219809933566
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 485.08264700649306,
+          "request_ms": 1.6911749844439328,
+          "response_ms": 486.773821990937
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 434.2206009896472,
+          "request_ms": 1.7677010037004948,
+          "response_ms": 435.9883019933477
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 483.45195001456887,
+          "request_ms": 1.8027530168183148,
+          "response_ms": 485.2547030313872
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 563.009187055286,
+          "request_ms": 2.4468429619446397,
+          "response_ms": 565.4560300172307
+        },
+        {
+          "day": 5,
+          "accepted": true,
+          "compute_ms": 442.8476440371014,
+          "request_ms": 1.4658659929409623,
+          "response_ms": 444.3135100300424
+        },
+        {
+          "day": 6,
+          "accepted": true,
+          "compute_ms": 427.6528119808063,
+          "request_ms": 1.8098640139214694,
+          "response_ms": 429.46267599472776
+        },
+        {
+          "day": 7,
+          "accepted": true,
+          "compute_ms": 399.61031201528385,
+          "request_ms": 1.9622929976321757,
+          "response_ms": 401.57260501291603
+        },
+        {
+          "day": 8,
+          "accepted": true,
+          "compute_ms": 441.9326919596642,
+          "request_ms": 1.3381130411289632,
+          "response_ms": 443.2708050007932
+        },
+        {
+          "day": 9,
+          "accepted": true,
+          "compute_ms": 495.84727303590626,
+          "request_ms": 1.7668089712969959,
+          "response_ms": 497.61408200720325
+        },
+        {
+          "day": 10,
+          "accepted": true,
+          "compute_ms": 523.7196160014719,
+          "request_ms": 1.5569530078209937,
+          "response_ms": 525.2765690092929
+        },
+        {
+          "day": 11,
+          "accepted": true,
+          "compute_ms": 507.7597110066563,
+          "request_ms": 1.5722159878350794,
+          "response_ms": 509.33192699449137
+        },
+        {
+          "day": 12,
+          "accepted": true,
+          "compute_ms": 445.64634101698175,
+          "request_ms": 1.7830539727583528,
+          "response_ms": 447.4293949897401
+        },
+        {
+          "day": 13,
+          "accepted": true,
+          "compute_ms": 459.54772300319746,
+          "request_ms": 1.7574150115251541,
+          "response_ms": 461.3051380147226
+        },
+        {
+          "day": 14,
+          "accepted": true,
+          "compute_ms": 920.5150110065006,
+          "request_ms": 1.7122769495472312,
+          "response_ms": 922.2272879560478
+        },
+        {
+          "day": 15,
+          "accepted": true,
+          "compute_ms": 462.89686497766525,
+          "request_ms": 1.5680299839004874,
+          "response_ms": 464.46489496156573
+        },
+        {
+          "day": 16,
+          "accepted": true,
+          "compute_ms": 502.4898800184019,
+          "request_ms": 1.61347899120301,
+          "response_ms": 504.1033590096049
+        },
+        {
+          "day": 17,
+          "accepted": true,
+          "compute_ms": 412.760998995509,
+          "request_ms": 1.9423729972913861,
+          "response_ms": 414.7033719928004
+        },
+        {
+          "day": 18,
+          "accepted": true,
+          "compute_ms": 482.0705649908632,
+          "request_ms": 1.6586660058237612,
+          "response_ms": 483.72923099668697
+        },
+        {
+          "day": 19,
+          "accepted": true,
+          "compute_ms": 594.7236830252223,
+          "request_ms": 1.5007879701443017,
+          "response_ms": 596.2244709953666
+        }
+      ],
+      "measured_days": 20,
+      "total_ms": 10835.424160992261,
+      "average_ms": 541.771208049613,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 15,
+      "stopped_by_car": {
+        "0": 2,
+        "1": 13
+      },
+      "observed_days": 20,
+      "planned_refuels": 274,
+      "refuels_by_car": {
+        "1": 13,
+        "2": 96,
+        "6": 90,
+        "0": 75
+      },
+      "max_same_target_streak": 27
+    },
+    "accepted": 20,
+    "answers": 20
+  },
+  {
+    "map": "long32",
+    "team": 1,
+    "error": null,
+    "completed": true,
+    "types": 24,
+    "count": 412,
+    "cumulative": 405,
+    "timing": {
+      "days": [
+        {
+          "day": 0,
+          "accepted": true,
+          "compute_ms": 1436.2706950050779,
+          "request_ms": 2.1680319914594293,
+          "response_ms": 1438.4387269965373
+        },
+        {
+          "day": 1,
+          "accepted": true,
+          "compute_ms": 947.2421830287203,
+          "request_ms": 1.4740980113856494,
+          "response_ms": 948.716281040106
+        },
+        {
+          "day": 2,
+          "accepted": true,
+          "compute_ms": 864.553451014217,
+          "request_ms": 1.5502030146308243,
+          "response_ms": 866.1036540288478
+        },
+        {
+          "day": 3,
+          "accepted": true,
+          "compute_ms": 953.5350120277144,
+          "request_ms": 1.8242649966850877,
+          "response_ms": 955.3592770243995
+        },
+        {
+          "day": 4,
+          "accepted": true,
+          "compute_ms": 1042.7130649914034,
+          "request_ms": 1.4043640112504363,
+          "response_ms": 1044.1174290026538
+        },
+        {
+          "day": 5,
+          "accepted": true,
+          "compute_ms": 821.680618042592,
+          "request_ms": 1.6454459982924163,
+          "response_ms": 823.3260640408844
+        },
+        {
+          "day": 6,
+          "accepted": true,
+          "compute_ms": 634.4430080498569,
+          "request_ms": 1.7816309700720012,
+          "response_ms": 636.2246390199289
+        },
+        {
+          "day": 7,
+          "accepted": true,
+          "compute_ms": 775.0534450169653,
+          "request_ms": 1.7515259678475559,
+          "response_ms": 776.8049709848128
+        },
+        {
+          "day": 8,
+          "accepted": true,
+          "compute_ms": 628.4860940068029,
+          "request_ms": 1.653348037507385,
+          "response_ms": 630.1394420443103
+        },
+        {
+          "day": 9,
+          "accepted": true,
+          "compute_ms": 934.7090660012327,
+          "request_ms": 1.7250659875571728,
+          "response_ms": 936.4341319887899
+        },
+        {
+          "day": 10,
+          "accepted": true,
+          "compute_ms": 879.195214016363,
+          "request_ms": 2.521434973459691,
+          "response_ms": 881.7166489898227
+        },
+        {
+          "day": 11,
+          "accepted": true,
+          "compute_ms": 939.678038994316,
+          "request_ms": 1.600318995770067,
+          "response_ms": 941.2783579900861
+        },
+        {
+          "day": 12,
+          "accepted": true,
+          "compute_ms": 818.0225800024346,
+          "request_ms": 1.5207380056381226,
+          "response_ms": 819.5433180080727
+        },
+        {
+          "day": 13,
+          "accepted": true,
+          "compute_ms": 809.3978120014071,
+          "request_ms": 1.6138090286403894,
+          "response_ms": 811.0116210300475
+        },
+        {
+          "day": 14,
+          "accepted": true,
+          "compute_ms": 1066.9151740148664,
+          "request_ms": 1.6643349663354456,
+          "response_ms": 1068.5795089812018
+        },
+        {
+          "day": 15,
+          "accepted": true,
+          "compute_ms": 955.379689054098,
+          "request_ms": 1.6519459895789623,
+          "response_ms": 957.0316350436769
+        },
+        {
+          "day": 16,
+          "accepted": true,
+          "compute_ms": 886.2005510018207,
+          "request_ms": 1.616202003788203,
+          "response_ms": 887.8167530056089
+        },
+        {
+          "day": 17,
+          "accepted": true,
+          "compute_ms": 717.5735249766149,
+          "request_ms": 1.3640930410474539,
+          "response_ms": 718.9376180176623
+        },
+        {
+          "day": 18,
+          "accepted": true,
+          "compute_ms": 817.6895870128646,
+          "request_ms": 1.384653034619987,
+          "response_ms": 819.0742400474846
+        },
+        {
+          "day": 19,
+          "accepted": true,
+          "compute_ms": 850.227034999989,
+          "request_ms": 1.5765330172143877,
+          "response_ms": 851.8035680172034
+        }
+      ],
+      "measured_days": 20,
+      "total_ms": 17812.457885302138,
+      "average_ms": 890.6228942651069,
+      "complete": true
+    },
+    "metrics": {
+      "stopped_car_days": 0,
+      "stopped_by_car": {},
+      "observed_days": 20,
+      "planned_refuels": 77,
+      "refuels_by_car": {
+        "1": 20,
+        "0": 19,
+        "6": 20,
+        "2": 18
+      },
+      "max_same_target_streak": 4
+    },
+    "accepted": 20,
+    "answers": 20
+  }
+]

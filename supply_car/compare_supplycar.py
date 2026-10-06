@@ -257,3 +257,133 @@ class calculate_supplycar:
 
         return refueled
 
+
+
+# 既存の探索・状態更新は共有し、補給対象の評価だけを差し替える。
+LegacySupplyCalculator = calculate_supplycar
+
+
+class calculate_supplycar(LegacySupplyCalculator):
+    def __init__(self, pre_game):
+        super().__init__(pre_game)
+        self.stopped_days = {}
+        self.last_refuel = {}
+        self.context = {}
+
+    def Update_Date(self, pre_date, converted_map):
+        super().Update_Date(pre_date, converted_map)
+        for aid, agent in enumerate(pre_date.agents):
+            if agent.kind == 0:
+                cost = converted_map.cells[agent.pos].fuel_cost
+                self.stopped_days[aid] = (self.stopped_days.get(aid, 0) + 1
+                                          if agent.fuel < cost else 0)
+
+    def set_tour_context(self, cars, acquired_today, acquired_match):
+        self.context = {car['id']: car for car in cars}
+        self.acquired_today = set(acquired_today)
+        self.acquired_match = set(acquired_match)
+
+    def _fuel_limit(self, aid):
+        limits = self.pre_game.fuelLimits
+        return limits[aid] if isinstance(limits, dict) else limits
+
+    def _benefit(self, candidate, remaining_steps):
+        """補給により到達可能になるスポット数をA*で見積もる（巡回の保証値ではない）。"""
+        from tour_car.compute_astar import AstarAlgorithm
+        astar = AstarAlgorithm(fuel_weight=0)
+        astar.map_input(self.converted_map.cells)
+        aid = candidate['tourcar_id']
+        limit = self._fuel_limit(aid)
+        benefit = 0
+        for spot in self.pre_game.spots:
+            if spot.brand in self.acquired_today or spot.stocks <= 0:
+                continue
+            route = astar.search_astar({'position': candidate['meeting_point'], 'fuel': limit}, spot.pos)
+            if route['status'] != 'reached_goal' or route['path'][-1]['step'] > remaining_steps:
+                continue
+            used = limit - route['path'][-1]['remaining_fuel']
+            if used > candidate['remaining_fuel']:
+                benefit += 2 if spot.brand not in self.acquired_match else 1
+        return benefit
+
+    def _priority_key(self, candidate):
+        return (candidate['urgency'], -candidate['stopped_days'],
+                -candidate['benefit_per_step'], candidate['meet_end'],
+                candidate['remaining_fuel'])
+
+    def _combination_key(self, combination):
+        selected = [c for c in combination if c is not None]
+        return (-sum(c['urgency'] == 0 for c in selected),
+                -sum(c['stopped_days'] for c in selected if c['urgency'] == 0),
+                -sum(c['urgency'] == 1 for c in selected),
+                -sum(c['benefit_per_step'] for c in selected),
+                sum(c['service_steps'] for c in selected), -len(selected))
+
+    def create_choices_per_supply(self, all_paths, choices_per_supply=5):
+        # 同じ巡回車の複数合流地点で候補枠を埋めず、車ごとの最良候補を残す。
+        choices = {}
+        for car in self.current_supplycars:
+            best = {}
+            for candidate in sorted((p for p in all_paths if p['supply_id'] == car['id']),
+                                    key=self._priority_key):
+                best.setdefault(candidate['tourcar_id'], candidate)
+            choices[car['id']] = list(best.values())
+        return choices
+
+    def calculate_path_supplycar(self, tour_assignments, tour_elapsed_steps=None, choices_per_supply=5):
+        tour_elapsed_steps = tour_elapsed_steps or {}
+        candidates = self.create_supply_candidates(tour_assignments, tour_elapsed_steps)
+        assignments = {a['agent_id']: a for a in tour_assignments}
+        evaluated = []
+        benefit_cache = {}
+        for candidate in self.compute_astar(candidates):
+            aid = candidate['tourcar_id']
+            tour = self.context[aid]
+            path = assignments[aid]['path']
+            index = candidate['path_index']
+            # 燃料で辿り着けない地点と、同期時に日内に成立しない合流を除く。
+            if any(point['remaining_fuel'] < 0 for point in path[:index + 1]):
+                continue
+            meet_end = max(candidate['supply_arrival_step'], candidate['tour_arrival_step']) + 1
+            if meet_end > self.day_total_steps:
+                continue
+            cell = self.astar._get_cell(tour['position'])
+            stopped = tour['remaining_fuel'] < cell.fuel_cost
+            urgent = assignments[aid]['status'] == 'fuel_shortage'
+            urgency = 0 if stopped else 1 if urgent else 2
+            limit = self._fuel_limit(aid)
+            if urgency == 2 and candidate['remaining_fuel'] > limit * .5:
+                continue
+            absolute_now = sum(self.pre_game.daySteps[:self.pre_date.day]) + tour_elapsed_steps.get(aid, 0)
+            recent = absolute_now - self.last_refuel.get(aid, float('-inf')) < 20
+            if urgency == 2 and recent and candidate['remaining_fuel'] > limit * .25:
+                continue
+            service_steps = max(candidate['supply_travel_steps'],
+                                candidate['tour_arrival_step'] - tour_elapsed_steps.get(aid, 0)) + 1
+            candidate.update(urgency=urgency, stopped_days=self.stopped_days.get(aid, 0) if stopped else 0,
+                             meet_end=meet_end, service_steps=service_steps)
+            evaluated.append(candidate)
+        # まず各補給車×巡回車で最短の成立合流を選び、効果の先読みはこの組だけに行う。
+        best_pairs = {}
+        for candidate in sorted(evaluated, key=lambda c: (c['meet_end'], c['service_steps'])):
+            best_pairs.setdefault((candidate['supply_id'], candidate['tourcar_id']), candidate)
+        evaluated = []
+        for candidate in best_pairs.values():
+            aid = candidate['tourcar_id']
+            remaining = self.day_total_steps - candidate['meet_end']
+            cache_key = (aid, tuple(candidate['meeting_point']), candidate['remaining_fuel'], remaining)
+            if cache_key not in benefit_cache:
+                benefit_cache[cache_key] = self._benefit(candidate, remaining)
+            benefit = benefit_cache[cache_key]
+            if candidate['urgency'] == 2 and benefit == 0:
+                continue
+            candidate.update(benefit=benefit, benefit_per_step=benefit / candidate['service_steps'])
+            evaluated.append(candidate)
+        return self.prioritize_and_assign(evaluated, choices_per_supply)
+
+    def Update_current_supplycars(self, assignment_result):
+        super().Update_current_supplycars(assignment_result)
+        for assignment in assignment_result['assignments']:
+            if 'refuel_at' in assignment:
+                self.last_refuel[assignment['tourcar_id']] = (
+                    sum(self.pre_game.daySteps[:self.pre_date.day]) + assignment['refuel_at'])

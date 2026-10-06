@@ -44,7 +44,7 @@ function renderTeams(){
     option.textContent='チーム '+team.id+' · '+team.name;select.append(option);
     const row=document.createElement('tr'),stats=team.stats;
     const known=stats&&(stats.method!=='replay'||stats.known_days?.length>0);
-    for(const value of [option.textContent,known?stats.total_types:'未集計',known?stats.cumulative_types:'未集計',known?stats.total_count:'未集計',formatMissing(stats?.missing_brands),formatMs(team.timing?.average_ms),formatMs(team.timing?.total_ms),team.error?'エラー':team.running?'実行中':team.completed?'完了':'未実行']){
+    for(const value of [option.textContent,known?stats.total_types:'未集計',known?stats.cumulative_types:'未集計',known?stats.total_count:'未集計',formatMissing(stats?.missing_brands),formatMs(team.timing?.average_ms),formatMs(team.timing?.total_ms),team.supply_metrics?.observed_days?team.supply_metrics.stopped_car_days:'未観測',team.supply_metrics?.planned_refuels??'未観測',team.supply_metrics?.max_same_target_streak??'未観測',team.error?'エラー':team.running?'実行中':team.completed?'完了':'未実行']){
       const cell=document.createElement('td');cell.textContent=value;row.append(cell);
     }
     row.className=team.id===state.team?'active':'';
