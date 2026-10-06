@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 from result_stats import summarize_acquisitions, replay_acquisitions
 from response_timing import summarize_response_times
+from supply_metrics import summarize_supply_metrics
 
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = Path(__file__).resolve().parent
@@ -154,7 +155,7 @@ class Store:
         selected = None
         for participant in participants:
             detail = self.get_team(name, participant['id'])
-            teams.append({**participant, 'stats': detail['stats'], 'timing': detail['timing'],
+            teams.append({**participant, 'stats': detail['stats'], 'timing': detail['timing'], 'supply_metrics': detail['supply_metrics'],
                           'running': detail['result'].get('running', False),
                           'completed': detail['result'].get('completed', False),
                           'error': detail['result'].get('error')})
@@ -195,7 +196,8 @@ class Store:
         else:
             stats = replay_acquisitions(source, data)
         return {'source': source, 'result': data, 'stats': stats,
-                'timing': summarize_response_times(data['events'], len(source['daySteps']))}
+                'timing': summarize_response_times(data['events'], len(source['daySteps'])),
+                'supply_metrics': summarize_supply_metrics(source, data)}
 
     def import_result(self, name, records, team=0):
         self.get(name, team)
